@@ -427,14 +427,17 @@ class GameScene extends Phaser.Scene {
   }
 
   spawnEnemies(H) {
+    // Spawn Y formula: platform top = H - platformCenter - 10
+    //   body bottom = sprite.y + 42  (setSize 30×46, setOffset 17×14, scale 1.5)
+    //   spawn_y = platform_top - 42 = H - platformCenter - 52
+    // Ground (center H-16, top H-32): spawn_y = H-74
     [
-      [430,  H-72,  'enemy1', 100], [830,  H-72,  'enemy2', 80],
-      [1210, H-187, 'enemy1',  90], [1630, H-230, 'enemy2', 65],
-      [2060, H-72,  'enemy1', 110], [2390, H-190, 'enemy2', 75],
-      [2760, H-72,  'enemy1',  95], [3110, H-230, 'enemy2', 70],
-      [3530, H-270, 'enemy1',  85], [3890, H-72,  'enemy2', 90],
-      [4320, H-225, 'enemy1',  80], [4660, H-72,  'enemy2',100],
-      [4980, H-195, 'enemy1',  90],
+      [500,  H-74,  'enemy1', 150],  // ground
+      [860,  H-182, 'enemy2',  85],  // platform H-130 (top H-140), patrolRange within platform
+      [1660, H-300, 'enemy1',  70],  // platform H-248 (top H-258)
+      [2500, H-74,  'enemy2', 150],  // ground
+      [3260, H-244, 'enemy1',  85],  // platform H-192 (top H-202)
+      [4540, H-230, 'enemy2',  80],  // platform H-178 (top H-188)
     ].forEach(([x, y, key, patrol]) => {
       const e = this.physics.add.sprite(x, y, 'e-idle-0');
       e.setScale(1.5).setCollideWorldBounds(true).setDepth(8);
@@ -444,12 +447,12 @@ class GameScene extends Phaser.Scene {
       e.patrolEnd   = x + patrol;
       e.direction   = 1;
       e.shootTimer  = Phaser.Math.Between(80, 200);
-      e.attacking   = false;   // replaces curAnim — used to block walk anim during attack
+      e.attacking   = false;
       e.chasing     = false;
       e.jumpCooldown = 0;
       e.speedMult   = 1;
-      e.body.setSize(30, 42);   // 64×0.47 wide, 64×0.66 tall (unscaled)
-      e.body.setOffset(17, 16); // 64×0.27 x-offset, 64×0.25 y-offset for ground alignment
+      e.body.setSize(30, 46);   // match player body size for consistent ground alignment
+      e.body.setOffset(17, 14);
       this.setEnemyAnim(e, 'e-walk');
       this.enemies.add(e);
     });
@@ -592,9 +595,9 @@ class GameScene extends Phaser.Scene {
       }
 
       if (e.chasing) {
-        // Chase mode
+        // Chase mode — reduced speeds for better game feel
         const dir = distX > 0 ? 1 : -1;
-        const baseSpeed = e.enemyType === 'enemy1' ? 115 : 140;
+        const baseSpeed = e.enemyType === 'enemy1' ? 75 : 90;
         const speed = baseSpeed * e.speedMult;
         e.setVelocityX(dir * speed);
         e.setFlipX(dir < 0);
@@ -603,16 +606,22 @@ class GameScene extends Phaser.Scene {
 
         // Jump up to chase player on a higher platform (player.y < e.y → distY < -80)
         if (distY < -80 && e.body.blocked.down && e.jumpCooldown === 0) {
-          e.setVelocityY(-380); // enemy hop upward to reach player above
+          e.setVelocityY(-380);
           e.jumpCooldown = 120;
         }
       } else {
         // Patrol mode
-        e.setVelocityX(e.direction * 52 * e.speedMult);
+        e.setVelocityX(e.direction * 38 * e.speedMult);
         e.setFlipX(e.direction < 0);
         if (!e.attacking) this.setEnemyAnim(e, 'e-walk');
         if (e.x <= e.patrolStart) e.direction =  1;
         if (e.x >= e.patrolEnd)   e.direction = -1;
+
+        // Jump over obstacles/walls while patrolling so enemies can reach platforms
+        if ((e.body.blocked.left || e.body.blocked.right) && e.body.blocked.down && e.jumpCooldown === 0) {
+          e.setVelocityY(-380);
+          e.jumpCooldown = 90;
+        }
       }
 
       if (e.enemyType === 'enemy1') {
@@ -717,7 +726,7 @@ class GameScene extends Phaser.Scene {
     // Pick a spawn point 800-1200px away from player, clamped to level bounds
     const offset = Phaser.Math.Between(800, 1200) * (Math.random() < 0.5 ? -1 : 1);
     const spawnX = Phaser.Math.Clamp(px + offset, 60, LEVEL_W - 60);
-    const spawnY = H - 78;
+    const spawnY = H - 74;
     const key    = deadEnemy.enemyType;
     const oldMult = deadEnemy.speedMult || 1;
     const newMult = Math.min(oldMult * 1.3, 1.6);
@@ -737,8 +746,8 @@ class GameScene extends Phaser.Scene {
       e.chasing      = false;
       e.jumpCooldown = 0;
       e.speedMult    = newMult;
-      e.body.setSize(30, 42);
-      e.body.setOffset(17, 16);
+      e.body.setSize(30, 46);
+      e.body.setOffset(17, 14);
       this.setEnemyAnim(e, 'e-walk');
       // Adding e to this.enemies automatically includes it in the group colliders
       // registered in create(): enemies↔platforms and player↔enemies.
@@ -751,12 +760,20 @@ class GameScene extends Phaser.Scene {
 
   spawnBoxes(H) {
     // [x, y, boxType (1-3), reward ('shield'|'star'|'heart'|'boots'|'fruit')]
+    // Box Y = bottom of box. Formula: platform_top - 89
+    //   platform_top = H - platformCenter - 10
+    //   so box_y = H - platformCenter - 99
+    // This places the box 89px above the platform surface — player walks under it and
+    // jumps from below to trigger the reward.
     const boxDefs = [
-      [340,  H-155, 1, 'heart'  ], [730,  H-368, 2, 'star'   ],
-      [1150, H-255, 3, 'shield' ], [1660, H-298, 1, 'boots'  ],
-      [2210, H-340, 2, 'heart'  ], [2720, H-205, 3, 'star'   ],
-      [3260, H-240, 1, 'shield' ], [3760, H-250, 2, 'boots'  ],
-      [4290, H-290, 3, 'fruit'  ], [4790, H-345, 1, 'heart'  ],
+      [340,  H-209, 1, 'heart'  ],  // platform H-110 (top H-120)
+      [860,  H-229, 2, 'star'   ],  // platform H-130 (top H-140)
+      [1150, H-309, 3, 'shield' ],  // platform H-210 (top H-220)
+      [1910, H-274, 1, 'boots'  ],  // platform H-175 (top H-185)
+      [2470, H-307, 2, 'heart'  ],  // platform H-208 (top H-218)
+      [2970, H-347, 3, 'star'   ],  // platform H-248 (top H-258)
+      [3260, H-291, 1, 'shield' ],  // platform H-192 (top H-202)
+      [4790, H-397, 3, 'fruit'  ],  // platform H-298 (top H-308)
     ];
     boxDefs.forEach(([x, y, type, reward]) => {
       const key = `box${type}`;

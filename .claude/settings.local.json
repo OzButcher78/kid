@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(git add:*)",
+      "Bash(file /c/Projekt/kid/assets/*.png)",
+      "Bash(xargs ls:*)",
+      "Bash(for f:*)",
+      "Bash(do file:*)",
+      "Bash(done)",
+      "Bash(ls -1 /c/Projekt/kid/assets/*.png /c/Projekt/kid/assets/*.mp3)",
+      "Bash(xargs -I {} basename {})"
+    ]
+  }
+}
