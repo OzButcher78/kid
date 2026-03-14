@@ -3,7 +3,7 @@
 // ════════════════════════════════════
 class HUDScene extends Phaser.Scene {
   constructor() { super({ key: 'HUD' }); }
-  init(data) { this.gs = data.gameScene; }
+  init(data) { this.gs = data.gameScene; this.level = data.level || 1; }
 
   create() {
     const W = GAME_W;
@@ -12,8 +12,14 @@ class HUDScene extends Phaser.Scene {
     // ── TOP BAR (lives + score) ─────────────────────────────────
     this.add.rectangle(W / 2, 22, W, 44, 0x000000, 0.52);
 
-    this.livesBar = this.add.image(14, 22, 'health-bar', this.livesToFrame(3))
+    this.livesBar = this.add.image(14, 22, 'health-bar', this.livesToFrame(this.gs.lives))
       .setOrigin(0, 0.5).setScale(1.8);
+
+    // Level indicator
+    this.add.text(W / 2, 8, 'LEVEL ' + this.level, {
+      fontSize: '14px', fill: '#ffd700', fontFamily: '"Bangers", cursive', letterSpacing: 1,
+      stroke: '#000', strokeThickness: 2
+    }).setOrigin(0.5, 0);
 
     this.scoreTxt = this.add.text(W - 14, 9, 'PUNKTE: 0', {
       fontSize: '16px', fill: '#ffffff', fontFamily: '"Bangers", cursive', letterSpacing: 1
@@ -48,18 +54,18 @@ class HUDScene extends Phaser.Scene {
     this.appleContainer = this.add.container(CX, 80).setVisible(false).setDepth(10);
     const appleBg = this.add.graphics();
     appleBg.fillStyle(0x000000, 0.65);
-    appleBg.fillRoundedRect(-68, -14, 136, 30, 8);
+    appleBg.fillRoundedRect(-80, -14, 160, 30, 8);
     appleBg.lineStyle(1.5, 0xff6600, 0.8);
-    appleBg.strokeRoundedRect(-68, -14, 136, 30, 8);
+    appleBg.strokeRoundedRect(-80, -14, 160, 30, 8);
     this.appleContainer.add(appleBg);
-    const qBadge = this.add.text(-56, -10, 'SPACE', {
-      fontSize: '11px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
-      backgroundColor: '#cc5500', padding: { x: 4, y: 2 }
+    const spaceBadge = this.add.text(-68, -10, 'SPACE', {
+      fontSize: '10px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
+      backgroundColor: '#cc5500', padding: { x: 3, y: 2 }
     });
-    this.appleContainer.add(qBadge);
+    this.appleContainer.add(spaceBadge);
     this.appleIcons = [];
     for (let i = 0; i < 3; i++) {
-      const icon = this.add.sprite(-20 + i * 30, 1, 'fruit-apple', 0).setScale(1.0);
+      const icon = this.add.sprite(10 + i * 28, 1, 'fruit-apple', 0).setScale(1.0);
       this.appleIcons.push(icon);
       this.appleContainer.add(icon);
     }

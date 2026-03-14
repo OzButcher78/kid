@@ -4,10 +4,11 @@
 class GameScene extends Phaser.Scene {
   constructor() { super({ key: 'Game' }); }
 
-  init() {
-    this.lives        = 3;
-    this.score        = 0;
-    this.shieldHits   = 0;        // shield absorbs up to 3 hits
+  init(data) {
+    this.level        = (data && data.level) || 1;
+    this.lives        = (data && data.lives != null) ? data.lives : 3;
+    this.score        = (data && data.score) || 0;
+    this.shieldHits   = 0;
     this.hasSpeed     = false;
     this.hasApple     = false;
     this.appleCount   = 0;
@@ -20,7 +21,11 @@ class GameScene extends Phaser.Scene {
     this.wasOnGround  = true;
     this.groundFrames = 0;
     this.respawnX     = 120;
-    this.respawnY     = GAME_H - 56;   // BUG-001 fix: matches body math for ground alignment
+    this.respawnY     = GAME_H - 56;
+
+    // Difficulty scaling per level
+    this.enemySpeedScale  = 1 + (this.level - 1) * 0.15;   // +15% per level
+    this.boxHitScale      = this.level;                      // multiplier for box hits
   }
 
   create() {
@@ -157,7 +162,20 @@ class GameScene extends Phaser.Scene {
     this.wKey     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
     this.qKey     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
 
-    this.scene.launch('HUD', { gameScene: this });
+    this.scene.launch('HUD', { gameScene: this, level: this.level });
+
+    // Level start banner
+    if (this.level > 1) {
+      const banner = this.add.text(GAME_W / 2, GAME_H / 2 - 40, `LEVEL ${this.level}`, {
+        fontSize: '48px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
+        stroke: '#000', strokeThickness: 6
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(50);
+      const sub = this.add.text(GAME_W / 2, GAME_H / 2 + 10, 'Es wird schwerer!', {
+        fontSize: '18px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '700',
+        stroke: '#000', strokeThickness: 3
+      }).setOrigin(0.5).setScrollFactor(0).setDepth(50);
+      this.tweens.add({ targets: [banner, sub], alpha: 0, delay: 1800, duration: 600, onComplete: () => { banner.destroy(); sub.destroy(); } });
+    }
   }
 
   // ── Only switch animation when it actually changes ──
@@ -204,7 +222,7 @@ class GameScene extends Phaser.Scene {
       [2500, H-56,  'enemy2', 150],  // ground
       [3260, H-226, 'enemy1',  85],  // platform H-192 (top H-202)
       [4540, H-212, 'enemy2',  80],  // platform H-178 (top H-188)
-    ].forEach(([x, y, key, patrol]) => {
+    ].forEach(([x, y, key, patrol], idx) => {
       const e = this.physics.add.sprite(x, y, 'e-idle-0');
       e.setScale(1.5).setCollideWorldBounds(true).setDepth(8);
       if (key === 'enemy2') e.setTint(0xffbbcc);
@@ -216,7 +234,10 @@ class GameScene extends Phaser.Scene {
       e.attacking   = false;
       e.chasing     = false;
       e.jumpCooldown = 0;
-      e.speedMult   = 1;
+      e.speedMult   = this.enemySpeedScale;
+      // Every 3rd/4th enemy gets a temporary speed boost (from level 2+)
+      e.hasSpeedBoost = (this.level >= 2 && (idx % 3 === 2 || idx % 4 === 3));
+      if (e.hasSpeedBoost) e.setTint(0xff6666);  // red tint for boosted enemies
       // BUG-001 fix: body height 40 so bottom = row 48 (feet at row 47)
       e.body.setSize(30, 40);
       e.body.setOffset(17, 8);
@@ -423,7 +444,25 @@ class GameScene extends Phaser.Scene {
   handleEnemies() {
     this.enemies.getChildren().forEach(e => {
       if (!e.active) return;
-      e.speedMult = e.speedMult || 1;
+      e.speedMult = e.speedMult || this.enemySpeedScale;
+
+      // Boosted enemies get periodic speed surges
+      if (e.hasSpeedBoost && !e.boosting) {
+        if (!e._boostTimer) e._boostTimer = Phaser.Math.Between(180, 300);
+        e._boostTimer--;
+        if (e._boostTimer <= 0) {
+          e.boosting = true;
+          e.speedMult = this.enemySpeedScale * 1.8;
+          e.setTint(0xff0000);
+          this.time.delayedCall(2500, () => {
+            if (!e?.active) return;
+            e.boosting = false;
+            e.speedMult = this.enemySpeedScale;
+            e.setTint(e.enemyType === 'enemy2' ? 0xffbbcc : (e.hasSpeedBoost ? 0xff6666 : 0xffffff));
+            e._boostTimer = Phaser.Math.Between(200, 350);
+          });
+        }
+      }
       const distX = this.player.x - e.x;
       const distY = this.player.y - e.y;
       const dist  = Math.abs(distX);
@@ -623,7 +662,9 @@ class GameScene extends Phaser.Scene {
       img.boxKey       = key;
       img.boxReward    = reward;
       img.boxHit       = false;
-      img.hitsRequired = (type === 1) ? 1 : 3;
+      // Level scaling: base hits × level (e.g. level 2: easy=2, hard=6)
+      const baseHits = (type === 1) ? 1 : 3;
+      img.hitsRequired = baseHits * this.boxHitScale;
       img.hitsTaken    = 0;
       this.boxes.add(img);
     });
@@ -767,12 +808,23 @@ class GameScene extends Phaser.Scene {
     this.gameOver = true;
     this.endSprite?.setTexture('end-press').setFrame(0);
     this.physics.pause();
-    this.music?.stop();
     this['snd-win']?.play();
     this.cameras.main.flash(500, 255, 255, 100);
-    this.time.delayedCall(900, () => {
+
+    // Level completion bonus
+    const bonus = this.level * 500;
+    this.score += bonus;
+    this.showFloat(this.player.x, this.player.y - 60, `LEVEL ${this.level} GESCHAFFT! +${bonus}`, '#ffd700');
+
+    this.time.delayedCall(1500, () => {
       this.scene.stop('HUD');
-      this.scene.start('GameOver', { won: true, score: this.score });
+      this.music?.stop();
+      // Advance to next level, carrying over score and lives
+      this.scene.start('Game', {
+        level: this.level + 1,
+        score: this.score,
+        lives: this.lives
+      });
     });
   }
 
@@ -838,7 +890,7 @@ class GameScene extends Phaser.Scene {
       this['snd-gameover']?.play();
       this.time.delayedCall(800, () => {
         this.scene.stop('HUD');
-        this.scene.start('GameOver', { won: false, score: this.score });
+        this.scene.start('GameOver', { won: false, score: this.score, level: this.level });
       });
     }
   }
