@@ -23,11 +23,16 @@ class HUDScene extends Phaser.Scene {
     // Each indicator is positioned relative to center-top of screen
     // They stack: shield at y=54, turbo at y=80, apple at y=106
 
-    // Shield indicator
-    this.shieldIcon = this.add.text(CX, 54, 'SCHILD x3', {
-      fontSize: '16px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
-      stroke: '#000000', strokeThickness: 3, letterSpacing: 1
-    }).setOrigin(0.5).setVisible(false).setDepth(10);
+    // Shield indicator — white on dark pill for readability
+    this.shieldBg = this.add.graphics().setVisible(false).setDepth(10);
+    this.shieldBg.fillStyle(0x000000, 0.6);
+    this.shieldBg.fillRoundedRect(-70, -14, 140, 28, 8);
+    this.shieldBg.lineStyle(1.5, 0xffd700, 0.7);
+    this.shieldBg.strokeRoundedRect(-70, -14, 140, 28, 8);
+    this.shieldIcon = this.add.text(CX, 58, 'SCHILD x3', {
+      fontSize: '15px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
+      stroke: '#000000', strokeThickness: 4
+    }).setOrigin(0.5).setVisible(false).setDepth(11);
 
     // Turbo bar — centered, wider
     this.turboContainer = this.add.container(CX, 80).setVisible(false).setDepth(10);
@@ -61,9 +66,9 @@ class HUDScene extends Phaser.Scene {
 
     // ── EVENT LISTENERS ──────────────────────────────────────────
     this.gs.events.on('livesChanged', n  => this.livesBar.setFrame(this.livesToFrame(n)));
-    this.gs.events.on('shieldOn',  n  => { this.shieldIcon.setText('SCHILD x' + n); this.shieldIcon.setVisible(true); this.layoutPowerups(); });
+    this.gs.events.on('shieldOn',  n  => { this.shieldIcon.setText('SCHILD x' + n); this.shieldIcon.setVisible(true); this.shieldBg.setVisible(true); this.layoutPowerups(); });
     this.gs.events.on('shieldHit', n => { this.shieldIcon.setText('SCHILD x' + n); });
-    this.gs.events.on('shieldOff',    () => { this.shieldIcon.setVisible(false); this.layoutPowerups(); });
+    this.gs.events.on('shieldOff',    () => { this.shieldIcon.setVisible(false); this.shieldBg.setVisible(false); this.layoutPowerups(); });
     this.gs.events.on('speedOn',  ms => { this.startTurboBar(ms); this.layoutPowerups(); });
     this.gs.events.on('speedOff', ()  => { this.turboContainer.setVisible(false); this.layoutPowerups(); });
     this.gs.events.on('appleOn',  n   => { this.updateAppleUI(n); this.layoutPowerups(); });
@@ -84,17 +89,18 @@ class HUDScene extends Phaser.Scene {
   // Dynamically stack visible power-up indicators below the top bar
   layoutPowerups() {
     const CX = GAME_W / 2;
-    let y = 54;
+    let y = 58;
     if (this.shieldIcon.visible) {
       this.shieldIcon.setPosition(CX, y);
-      y += 26;
+      this.shieldBg.setPosition(CX, y);
+      y += 32;
     }
     if (this.turboContainer.visible) {
-      this.turboContainer.setPosition(CX, y + 6);
-      y += 28;
+      this.turboContainer.setPosition(CX, y + 4);
+      y += 32;
     }
     if (this.appleContainer.visible) {
-      this.appleContainer.setPosition(CX, y + 6);
+      this.appleContainer.setPosition(CX, y + 4);
     }
   }
 
