@@ -99,9 +99,12 @@ class BootScene extends Phaser.Scene {
       fontSize: '12px', fill: '#aaffaa', fontFamily: '"Press Start 2P"'
     }).setOrigin(0.5);
     this.load.on('progress', v => { bar.width = 400 * v; });
+    this.load.on('loaderror', (file) => {
+      console.error('Load error:', file.key, file.src);
+    });
 
     // Player individual frames (64×64 each)
-    const pBase = 'assets/char1/Clothes 1/Character1M_1_';
+    const pBase = 'assets/char1/Clothes1/Character1M_1_';
     ['idle','walk','run'].forEach(anim => {
       for (let i = 0; i < 8; i++)
         this.load.image(`p-${anim}-${i}`, `${pBase}${anim}_${i}.png`);
@@ -139,36 +142,43 @@ class BootScene extends Phaser.Scene {
   }
 
   create() {
-    // Helper: build frames array from image keys
-    const imgFrames = (prefix, count) =>
-      Array.from({ length: count }, (_, i) => ({ key: `${prefix}-${i}` }));
+    try {
+      // Helper: build frames array from image keys
+      const imgFrames = (prefix, count) =>
+        Array.from({ length: count }, (_, i) => ({ key: `${prefix}-${i}` }));
 
-    // Player animations
-    this.anims.create({ key: 'p-idle', frames: imgFrames('p-idle', 8), frameRate: 8,  repeat: -1 });
-    this.anims.create({ key: 'p-walk', frames: imgFrames('p-walk', 8), frameRate: 10, repeat: -1 });
-    this.anims.create({ key: 'p-run',  frames: imgFrames('p-run',  8), frameRate: 12, repeat: -1 });
-    this.anims.create({ key: 'p-jump', frames: imgFrames('p-jump', 2), frameRate: 8,  repeat: 0  });
-    this.anims.create({ key: 'p-fall', frames: imgFrames('p-fall', 2), frameRate: 8,  repeat: -1 });
-    this.anims.create({ key: 'p-hurt', frames: imgFrames('p-hurt', 2), frameRate: 10, repeat: 0  });
+      // Player animations
+      this.anims.create({ key: 'p-idle', frames: imgFrames('p-idle', 8), frameRate: 8,  repeat: -1 });
+      this.anims.create({ key: 'p-walk', frames: imgFrames('p-walk', 8), frameRate: 10, repeat: -1 });
+      this.anims.create({ key: 'p-run',  frames: imgFrames('p-run',  8), frameRate: 12, repeat: -1 });
+      this.anims.create({ key: 'p-jump', frames: imgFrames('p-jump', 2), frameRate: 8,  repeat: 0  });
+      this.anims.create({ key: 'p-fall', frames: imgFrames('p-fall', 2), frameRate: 8,  repeat: -1 });
+      this.anims.create({ key: 'p-hurt', frames: imgFrames('p-hurt', 2), frameRate: 10, repeat: 0  });
 
-    // Enemy animations (single sprite set used for both enemy types)
-    this.anims.create({ key: 'e-idle',  frames: imgFrames('e-idle',  8), frameRate: 8,  repeat: -1 });
-    this.anims.create({ key: 'e-walk',  frames: imgFrames('e-walk',  8), frameRate: 8,  repeat: -1 });
-    this.anims.create({ key: 'e-run',   frames: imgFrames('e-run',   8), frameRate: 10, repeat: -1 });
-    this.anims.create({ key: 'e-punch', frames: imgFrames('e-punch', 6), frameRate: 10, repeat: 0  });
-    this.anims.create({ key: 'e-hurt',  frames: imgFrames('e-hurt',  2), frameRate: 10, repeat: 0  });
+      // Enemy animations (single sprite set used for both enemy types)
+      this.anims.create({ key: 'e-idle',  frames: imgFrames('e-idle',  8), frameRate: 8,  repeat: -1 });
+      this.anims.create({ key: 'e-walk',  frames: imgFrames('e-walk',  8), frameRate: 8,  repeat: -1 });
+      this.anims.create({ key: 'e-run',   frames: imgFrames('e-run',   8), frameRate: 10, repeat: -1 });
+      this.anims.create({ key: 'e-punch', frames: imgFrames('e-punch', 6), frameRate: 10, repeat: 0  });
+      this.anims.create({ key: 'e-hurt',  frames: imgFrames('e-hurt',  2), frameRate: 10, repeat: 0  });
 
-    // Fruit animations (17 frames each at 15fps, looping)
-    ['apple','bananas','cherries','kiwi','melon','orange','pineapple','strawberry'].forEach(name => {
-      this.anims.create({
-        key: `fruit-${name}`,
-        frames: this.anims.generateFrameNumbers(`fruit-${name}`, { start: 0, end: 16 }),
-        frameRate: 15,
-        repeat: -1
+      // Fruit animations (17 frames each at 15fps, looping)
+      ['apple','bananas','cherries','kiwi','melon','orange','pineapple','strawberry'].forEach(name => {
+        this.anims.create({
+          key: `fruit-${name}`,
+          frames: this.anims.generateFrameNumbers(`fruit-${name}`, { start: 0, end: 16 }),
+          frameRate: 15,
+          repeat: -1
+        });
       });
-    });
 
-    this.scene.start('Menu');
+      this.scene.start('Menu');
+    } catch(err) {
+      console.error('BootScene create error:', err);
+      this.add.text(GAME_W/2, GAME_H/2 + 60, 'ERROR: ' + err.message, {
+        fontSize: '8px', fill: '#ff0000', fontFamily: 'monospace', wordWrap: { width: 700 }
+      }).setOrigin(0.5);
+    }
   }
 }
 
