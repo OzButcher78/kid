@@ -24,8 +24,8 @@ class GameScene extends Phaser.Scene {
     this.respawnY     = GAME_H - 56;
 
     // Difficulty scaling per level
-    this.enemySpeedScale  = 1 + (this.level - 1) * 0.15;   // +15% per level
-    this.boxHitScale      = this.level;                      // multiplier for box hits
+    this.enemySpeedScale  = 1 + (this.level - 1) * 0.18;   // +18% per level
+    this.boxHitScale      = this.level;                      // multiplier for box hits (capped at 6)
   }
 
   create() {
@@ -223,27 +223,65 @@ class GameScene extends Phaser.Scene {
       [3260, H-226, 'enemy1',  85],  // platform H-192 (top H-202)
       [4540, H-212, 'enemy2',  80],  // platform H-178 (top H-188)
     ].forEach(([x, y, key, patrol], idx) => {
-      const e = this.physics.add.sprite(x, y, 'e-idle-0');
-      e.setScale(1.5).setCollideWorldBounds(true).setDepth(8);
-      if (key === 'enemy2') e.setTint(0xffbbcc);
-      e.enemyType   = key;
-      e.patrolStart = x - patrol;
-      e.patrolEnd   = x + patrol;
-      e.direction   = 1;
-      e.shootTimer  = Phaser.Math.Between(150, 300);
-      e.attacking   = false;
-      e.chasing     = false;
-      e.jumpCooldown = 0;
-      e.speedMult   = this.enemySpeedScale;
-      // Every 3rd/4th enemy gets a temporary speed boost (from level 2+)
-      e.hasSpeedBoost = (this.level >= 2 && (idx % 3 === 2 || idx % 4 === 3));
-      if (e.hasSpeedBoost) e.setTint(0xff6666);  // red tint for boosted enemies
-      // BUG-001 fix: body height 40 so bottom = row 48 (feet at row 47)
-      e.body.setSize(30, 40);
-      e.body.setOffset(17, 8);
-      this.setEnemyAnim(e, 'e-walk');
-      this.enemies.add(e);
+      this.setupEnemy(
+        this.physics.add.sprite(x, y, 'e-idle-0'),
+        key, x, patrol, idx
+      );
     });
+  }
+
+  // Shared enemy setup — used by spawnEnemies and respawnEnemy
+  setupEnemy(e, key, x, patrol, idx) {
+    e.setScale(1.5).setCollideWorldBounds(true).setDepth(8);
+    e.enemyType    = key;
+    e.patrolStart  = x - patrol;
+    e.patrolEnd    = x + patrol;
+    e.direction    = 1;
+    e.shootTimer   = Phaser.Math.Between(80, Math.max(100, 250 - this.level * 20));
+    e.attacking    = false;
+    e.chasing      = false;
+    e.jumpCooldown = 0;
+    e.speedMult    = this.enemySpeedScale;
+
+    // ── ENEMY POWERS (random, chance increases with level) ──────
+    e.hasSpeedBoost = false;
+    e.hasShield     = false;
+    e.canShoot      = (key === 'enemy1');  // enemy1 always shoots
+
+    if (this.level >= 2) {
+      const roll = Math.random();
+      const powerChance = Math.min(0.7, 0.2 + (this.level - 2) * 0.12);
+
+      if (roll < powerChance) {
+        // Pick a random power
+        const powers = ['speed', 'shield'];
+        // From level 3+, enemy2 can also throw fruit
+        if (this.level >= 3 && key === 'enemy2') powers.push('shoot');
+        const power = powers[Math.floor(Math.random() * powers.length)];
+
+        if (power === 'speed') {
+          e.hasSpeedBoost = true;
+          e.setTint(0xff6666);
+        } else if (power === 'shield') {
+          e.hasShield = true;
+          e.shieldHP  = 1;    // survives 1 stomp, then vulnerable
+          e.setTint(0x66ccff);
+        } else if (power === 'shoot') {
+          e.canShoot = true;
+          e.setTint(0xff88ff);
+        }
+      } else if (key === 'enemy2') {
+        e.setTint(0xffbbcc);
+      }
+    } else {
+      if (key === 'enemy2') e.setTint(0xffbbcc);
+    }
+
+    e.body.setSize(30, 40);
+    e.body.setOffset(17, 8);
+    this.setEnemyAnim(e, 'e-walk');
+    this.enemies.add(e);
+    return e;
   }
 
   setEnemyAnim(e, key) {
@@ -470,8 +508,10 @@ class GameScene extends Phaser.Scene {
 
       if (e.jumpCooldown > 0) e.jumpCooldown--;
 
-      const canChase = dist < 350 && distYAbs < 120;
-      const chaseLimitX = 500;
+      // Chase range widens with level
+      const chaseRange = 350 + (this.level - 1) * 30;
+      const canChase = dist < chaseRange && distYAbs < 120;
+      const chaseLimitX = 500 + (this.level - 1) * 40;
       const patrolExtended = 200;
 
       if (canChase) {
@@ -510,7 +550,7 @@ class GameScene extends Phaser.Scene {
         }
       }
 
-      if (e.enemyType === 'enemy1') {
+      if (e.canShoot) {
         e.shootTimer--;
         if (e.shootTimer <= 0 && dist < 400 && dist > 55) {
           e.shootTimer = e.chasing
@@ -593,6 +633,16 @@ class GameScene extends Phaser.Scene {
   onEnemyContact(player, enemy) {
     if (!enemy.active) return;
     if (player.body.velocity.y > 20 && player.body.bottom < enemy.body.center.y + 14) {
+      // Shielded enemy absorbs first stomp
+      if (enemy.hasShield && enemy.shieldHP > 0) {
+        enemy.shieldHP--;
+        enemy.setTint(0xffffff);  // flash white, shield gone
+        this.showFloat(enemy.x, enemy.y - 20, 'SCHILD!', '#66ccff');
+        this['snd-blocked']?.play();
+        player.setVelocityY(-300);
+        this.cameras.main.shake(60, 0.004);
+        return;
+      }
       this.score += 100;
       this.showFloat(enemy.x, enemy.y - 20, '+100', '#ffd700');
       this.spawnParticles(enemy.x, enemy.y, 0xff6666, 8);
@@ -610,31 +660,16 @@ class GameScene extends Phaser.Scene {
     const px = this.player.x;
     const offset = Phaser.Math.Between(800, 1200) * (Math.random() < 0.5 ? -1 : 1);
     const spawnX = Phaser.Math.Clamp(px + offset, 60, LEVEL_W - 60);
-    const spawnY = H - 56;   // BUG-001 fix
+    const spawnY = H - 56;
     const key    = deadEnemy.enemyType;
-    const oldMult = deadEnemy.speedMult || 1;
-    const newMult = Math.min(oldMult * 1.3, 1.6);
-    const patrol  = 100;
+    const patrol = 100;
 
     this.time.delayedCall(3000, () => {
       if (this.gameOver) return;
       const e = this.physics.add.sprite(spawnX, spawnY, 'e-idle-0');
-      e.setScale(1.5).setCollideWorldBounds(true).setDepth(8);
-      if (key === 'enemy2') e.setTint(0xffbbcc);
-      e.enemyType    = key;
-      e.patrolStart  = spawnX - patrol;
-      e.patrolEnd    = spawnX + patrol;
-      e.direction    = 1;
-      e.shootTimer   = Phaser.Math.Between(120, 220);
-      e.attacking    = false;
-      e.chasing      = false;
-      e.jumpCooldown = 0;
-      e.speedMult    = newMult;
-      // BUG-001 fix
-      e.body.setSize(30, 40);
-      e.body.setOffset(17, 8);
-      this.setEnemyAnim(e, 'e-walk');
-      this.enemies.add(e);
+      this.setupEnemy(e, key, spawnX, patrol, Math.floor(Math.random() * 6));
+      // Respawned enemies get a slight speed bump
+      e.speedMult = Math.min(this.enemySpeedScale * 1.2, this.enemySpeedScale + 0.4);
       this.showFloat(spawnX, spawnY - 40, 'ZURÜCK!', '#ff6600');
     });
   }
@@ -662,9 +697,9 @@ class GameScene extends Phaser.Scene {
       img.boxKey       = key;
       img.boxReward    = reward;
       img.boxHit       = false;
-      // Level scaling: base hits × level (e.g. level 2: easy=2, hard=6)
+      // Level scaling: base hits × level, capped at 6
       const baseHits = (type === 1) ? 1 : 3;
-      img.hitsRequired = baseHits * this.boxHitScale;
+      img.hitsRequired = Math.min(baseHits * this.boxHitScale, 6);
       img.hitsTaken    = 0;
       this.boxes.add(img);
     });

@@ -16,9 +16,9 @@ class HUDScene extends Phaser.Scene {
       .setOrigin(0, 0.5).setScale(1.8);
 
     // Level indicator
-    this.add.text(W / 2, 8, 'LEVEL ' + this.level, {
-      fontSize: '14px', fill: '#ffd700', fontFamily: '"Bangers", cursive', letterSpacing: 1,
-      stroke: '#000', strokeThickness: 2
+    this.add.text(W / 2, 6, 'LEVEL ' + this.level, {
+      fontSize: '22px', fill: '#ffd700', fontFamily: '"Bangers", cursive', letterSpacing: 2,
+      stroke: '#000', strokeThickness: 4
     }).setOrigin(0.5, 0);
 
     this.scoreTxt = this.add.text(W - 14, 9, 'PUNKTE: 0', {
