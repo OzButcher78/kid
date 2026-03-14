@@ -102,9 +102,9 @@ class StoryScene extends Phaser.Scene {
     // Narrative text
     this.time.delayedCall(3000, () => {
       if (this.step !== 2) return;
-      const narr = this.add.text(W / 2, H - 60, '...und so begann die Jagd.', {
-        fontSize: '20px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
-        stroke: '#000', strokeThickness: 3, letterSpacing: 1
+      const narr = this.add.text(W / 2, H - 130, '...und so begann die Jagd.', {
+        fontSize: '40px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
+        stroke: '#000', strokeThickness: 5, letterSpacing: 2
       }).setOrigin(0.5).setAlpha(0);
       this.stepObjects.push(narr);
       this.tweens.add({ targets: narr, alpha: 1, duration: 800 });

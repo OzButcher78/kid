@@ -1,78 +1,73 @@
 // ════════════════════════════════════
 //  TOUCH CONTROLS SCENE — on-screen buttons for mobile
 //  Launched in parallel with HUD when IS_TOUCH is true.
+//  All buttons in one horizontal row at the bottom.
 // ════════════════════════════════════
 class TouchControlsScene extends Phaser.Scene {
   constructor() { super({ key: 'TouchControls' }); }
 
   create() {
-    // Need 3+ pointers for simultaneous move + jump + shoot
-    this.input.addPointer(1);  // Phaser default is 2, add 1 more = 3 total
+    this.input.addPointer(1);  // 3 total pointers for multi-touch
 
     this._jumpRaw   = false;
     this._jumpPrev  = false;
     this._shootRaw  = false;
     this._shootPrev = false;
 
-    // ── LEFT D-PAD ──────────────────────────────────────────────
-    this.createButton(70, 490, 45, 0xffffff, '◀', {
+    const Y = 500;  // single row Y position
+    const R = 42;   // uniform radius
+
+    // ── LEFT: movement buttons ──────────────────────────────────
+    this.createButton(55,  Y, R, 0xffffff, '◀', {
       down: () => { TOUCH_INPUT.left = true; },
       up:   () => { TOUCH_INPUT.left = false; },
     });
 
-    this.createButton(180, 490, 45, 0xffffff, '▶', {
+    this.createButton(155, Y, R, 0xffffff, '▶', {
       down: () => { TOUCH_INPUT.right = true; },
       up:   () => { TOUCH_INPUT.right = false; },
     });
 
-    // ── RIGHT ACTION BUTTONS ────────────────────────────────────
-    this.createButton(720, 480, 50, 0x44cc44, '⬆', {
-      down: () => { this._jumpRaw = true; },
-      up:   () => { this._jumpRaw = false; },
-    });
-
-    this.createButton(620, 410, 40, 0xff8800, '●', {
+    // ── RIGHT: action buttons (inline, same row) ────────────────
+    this.createButton(645, Y, R, 0xff8800, '●', {
       down: () => { this._shootRaw = true; },
       up:   () => { this._shootRaw = false; },
     });
 
-    // Labels below buttons
-    this.add.text(125, 530, 'BEWEGEN', {
-      fontSize: '10px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif',
-      fontWeight: '700'
-    }).setOrigin(0.5).setAlpha(0.4);
+    this.createButton(745, Y, R + 5, 0x44cc44, '⬆', {
+      down: () => { this._jumpRaw = true; },
+      up:   () => { this._jumpRaw = false; },
+    });
 
-    this.add.text(720, 528, 'SPRING', {
-      fontSize: '10px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif',
-      fontWeight: '700'
-    }).setOrigin(0.5).setAlpha(0.4);
+    // Labels
+    this.add.text(105, Y + 48, 'BEWEGEN', {
+      fontSize: '9px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '700'
+    }).setOrigin(0.5).setAlpha(0.35);
 
-    this.add.text(620, 448, 'WURF', {
-      fontSize: '10px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif',
-      fontWeight: '700'
-    }).setOrigin(0.5).setAlpha(0.4);
+    this.add.text(645, Y + 48, 'WURF', {
+      fontSize: '9px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '700'
+    }).setOrigin(0.5).setAlpha(0.35);
+
+    this.add.text(745, Y + 48, 'SPRING', {
+      fontSize: '9px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '700'
+    }).setOrigin(0.5).setAlpha(0.35);
   }
 
   createButton(x, y, radius, color, label, handlers) {
     const gfx = this.add.graphics();
-    // Filled circle
     gfx.fillStyle(color, 0.2);
     gfx.fillCircle(x, y, radius);
-    // Border
     gfx.lineStyle(2, 0xffffff, 0.35);
     gfx.strokeCircle(x, y, radius);
 
-    // Label
     const txt = this.add.text(x, y, label, {
       fontSize: `${Math.round(radius * 0.7)}px`, fill: '#ffffff',
       fontFamily: '"Bangers", cursive'
     }).setOrigin(0.5).setAlpha(0.5);
 
-    // Interactive zone
     const zone = this.add.zone(x, y, radius * 2, radius * 2)
       .setInteractive().setOrigin(0.5);
 
-    // Press feedback
     zone.on('pointerdown', () => {
       gfx.clear();
       gfx.fillStyle(color, 0.45);
@@ -97,7 +92,6 @@ class TouchControlsScene extends Phaser.Scene {
   }
 
   update() {
-    // Rising-edge detection for one-shot inputs (jump, shoot)
     if (this._jumpRaw && !this._jumpPrev) {
       TOUCH_INPUT.jump = true;
     }
