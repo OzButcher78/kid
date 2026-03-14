@@ -7,58 +7,68 @@ class HUDScene extends Phaser.Scene {
 
   create() {
     const W = GAME_W;
+    const CX = W / 2;   // center X for power-up indicators
+
+    // ── TOP BAR (lives + score) ─────────────────────────────────
     this.add.rectangle(W / 2, 22, W, 44, 0x000000, 0.52);
 
-    // Health bar
     this.livesBar = this.add.image(14, 22, 'health-bar', this.livesToFrame(3))
       .setOrigin(0, 0.5).setScale(1.8);
 
-    // Shield indicator
-    this.shieldIcon = this.add.text(14, 38, 'SCHILD x3', {
-      fontSize: '11px', fill: '#ffd700', fontFamily: '"Nunito", sans-serif', fontWeight: '800'
-    }).setVisible(false);
-
-    // Speed bar
-    this.speedBar = this.createBar(115, 36, 0x00ffff, 'TURBO');
-
-    // ── APPLE UI (BUG-004 redesign) ──────────────────────────────
-    this.appleContainer = this.add.container(115, 30).setVisible(false).setDepth(5);
-    // Dark pill background
-    const appleBg = this.add.graphics();
-    appleBg.fillStyle(0x000000, 0.65);
-    appleBg.fillRoundedRect(-6, -10, 108, 24, 8);
-    appleBg.lineStyle(1.5, 0xff6600, 0.8);
-    appleBg.strokeRoundedRect(-6, -10, 108, 24, 8);
-    this.appleContainer.add(appleBg);
-    // Q key badge
-    const qBadge = this.add.text(0, -8, 'Q', {
-      fontSize: '12px', fill: '#ffffff', fontFamily: '"Bangers", cursive',
-      backgroundColor: '#cc5500', padding: { x: 4, y: 1 }
-    });
-    this.appleContainer.add(qBadge);
-    // 3 apple sprite indicators
-    this.appleIcons = [];
-    for (let i = 0; i < 3; i++) {
-      const icon = this.add.sprite(30 + i * 24, 2, 'fruit-apple', 0).setScale(0.8);
-      this.appleIcons.push(icon);
-      this.appleContainer.add(icon);
-    }
-
-    // Score
     this.scoreTxt = this.add.text(W - 14, 9, 'PUNKTE: 0', {
       fontSize: '16px', fill: '#ffffff', fontFamily: '"Bangers", cursive', letterSpacing: 1
     }).setOrigin(1, 0);
 
+    // ── CENTER POWER-UP INDICATORS (stacked, no overlap) ────────
+    // Each indicator is positioned relative to center-top of screen
+    // They stack: shield at y=54, turbo at y=80, apple at y=106
+
+    // Shield indicator
+    this.shieldIcon = this.add.text(CX, 54, 'SCHILD x3', {
+      fontSize: '16px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
+      stroke: '#000000', strokeThickness: 3, letterSpacing: 1
+    }).setOrigin(0.5).setVisible(false).setDepth(10);
+
+    // Turbo bar — centered, wider
+    this.turboContainer = this.add.container(CX, 80).setVisible(false).setDepth(10);
+    this.turboGfx = this.add.graphics();
+    this.turboContainer.add(this.turboGfx);
+    this.turboLbl = this.add.text(0, -14, 'TURBO', {
+      fontSize: '14px', fill: '#00ffff', fontFamily: '"Bangers", cursive',
+      stroke: '#000000', strokeThickness: 2, letterSpacing: 1
+    }).setOrigin(0.5);
+    this.turboContainer.add(this.turboLbl);
+
+    // Apple UI — centered
+    this.appleContainer = this.add.container(CX, 80).setVisible(false).setDepth(10);
+    const appleBg = this.add.graphics();
+    appleBg.fillStyle(0x000000, 0.65);
+    appleBg.fillRoundedRect(-68, -14, 136, 30, 8);
+    appleBg.lineStyle(1.5, 0xff6600, 0.8);
+    appleBg.strokeRoundedRect(-68, -14, 136, 30, 8);
+    this.appleContainer.add(appleBg);
+    const qBadge = this.add.text(-56, -10, 'Q', {
+      fontSize: '14px', fill: '#ffffff', fontFamily: '"Bangers", cursive',
+      backgroundColor: '#cc5500', padding: { x: 5, y: 2 }
+    });
+    this.appleContainer.add(qBadge);
+    this.appleIcons = [];
+    for (let i = 0; i < 3; i++) {
+      const icon = this.add.sprite(-20 + i * 30, 1, 'fruit-apple', 0).setScale(1.0);
+      this.appleIcons.push(icon);
+      this.appleContainer.add(icon);
+    }
+
     // ── EVENT LISTENERS ──────────────────────────────────────────
     this.gs.events.on('livesChanged', n  => this.livesBar.setFrame(this.livesToFrame(n)));
-    this.gs.events.on('shieldOn',  n  => { this.shieldIcon.setText('SCHILD x' + n); this.shieldIcon.setVisible(true); });
+    this.gs.events.on('shieldOn',  n  => { this.shieldIcon.setText('SCHILD x' + n); this.shieldIcon.setVisible(true); this.layoutPowerups(); });
     this.gs.events.on('shieldHit', n => { this.shieldIcon.setText('SCHILD x' + n); });
-    this.gs.events.on('shieldOff',    () => this.shieldIcon.setVisible(false));
-    this.gs.events.on('speedOn',  ms => this.startBar(this.speedBar, ms, 'TURBO'));
-    this.gs.events.on('speedOff', ()  => this.speedBar.setVisible(false));
-    this.gs.events.on('appleOn',  n   => this.updateAppleUI(n));
+    this.gs.events.on('shieldOff',    () => { this.shieldIcon.setVisible(false); this.layoutPowerups(); });
+    this.gs.events.on('speedOn',  ms => { this.startTurboBar(ms); this.layoutPowerups(); });
+    this.gs.events.on('speedOff', ()  => { this.turboContainer.setVisible(false); this.layoutPowerups(); });
+    this.gs.events.on('appleOn',  n   => { this.updateAppleUI(n); this.layoutPowerups(); });
     this.gs.events.on('appleCount', n => this.updateAppleUI(n));
-    this.gs.events.on('appleOff',  ()  => this.appleContainer.setVisible(false));
+    this.gs.events.on('appleOff',  ()  => { this.appleContainer.setVisible(false); this.layoutPowerups(); });
 
     this.time.addEvent({
       delay: 120, loop: true,
@@ -71,11 +81,27 @@ class HUDScene extends Phaser.Scene {
     });
   }
 
+  // Dynamically stack visible power-up indicators below the top bar
+  layoutPowerups() {
+    const CX = GAME_W / 2;
+    let y = 54;
+    if (this.shieldIcon.visible) {
+      this.shieldIcon.setPosition(CX, y);
+      y += 26;
+    }
+    if (this.turboContainer.visible) {
+      this.turboContainer.setPosition(CX, y + 6);
+      y += 28;
+    }
+    if (this.appleContainer.visible) {
+      this.appleContainer.setPosition(CX, y + 6);
+    }
+  }
+
   livesToFrame(n) {
     return Math.min(7, Math.max(0, Math.round((5 - Math.min(n, 5)) * 1.4)));
   }
 
-  // BUG-004: redesigned apple UI with sprites
   updateAppleUI(count) {
     this.appleContainer.setVisible(count > 0);
     if (count <= 0) return;
@@ -88,28 +114,31 @@ class HUDScene extends Phaser.Scene {
     });
   }
 
-  createBar(x, y, color) {
-    const g = this.add.graphics();
-    g.bx = x; g.by = y; g.bc = color;
-    return g.setVisible(false).setDepth(5);
-  }
-
-  startBar(bar, duration, label) {
-    bar.setVisible(true);
+  startTurboBar(duration) {
+    this.turboContainer.setVisible(true);
     const started = this.time.now;
-    const lbl = this.add.text(bar.bx, bar.by - 12, label, {
-      fontSize: '11px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800'
-    }).setDepth(6);
-    const interval = this.time.addEvent({
+    const barW = 120, barH = 10;
+    if (this._turboInterval) this._turboInterval.remove();
+    this._turboInterval = this.time.addEvent({
       delay: 50, loop: true,
       callback: () => {
         const t = Math.max(0, 1 - (this.time.now - started) / duration);
-        bar.clear();
-        bar.fillStyle(0x000000, 0.5);
-        bar.fillRect(bar.bx, bar.by, 90, 7);
-        bar.fillStyle(bar.bc);
-        bar.fillRect(bar.bx, bar.by, 90 * t, 7);
-        if (t <= 0) { bar.setVisible(false); lbl.destroy(); interval.remove(); }
+        const g = this.turboGfx;
+        g.clear();
+        // Background
+        g.fillStyle(0x000000, 0.55);
+        g.fillRoundedRect(-barW / 2, -barH / 2, barW, barH, 4);
+        // Fill
+        g.fillStyle(0x00ffff, 0.85);
+        g.fillRoundedRect(-barW / 2, -barH / 2, barW * t, barH, 4);
+        // Border
+        g.lineStyle(1, 0x00ffff, 0.5);
+        g.strokeRoundedRect(-barW / 2, -barH / 2, barW, barH, 4);
+        if (t <= 0) {
+          this.turboContainer.setVisible(false);
+          this._turboInterval.remove();
+          this._turboInterval = null;
+        }
       }
     });
   }
