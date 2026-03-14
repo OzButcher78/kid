@@ -37,7 +37,6 @@ class StoryScene extends Phaser.Scene {
   advance() {
     if (this.advancing) return;
     this.advancing = true;
-    if (this._autoTimer) { this._autoTimer.remove(); this._autoTimer = null; }
 
     // Clean up previous step
     this.stepObjects.forEach(obj => obj.destroy());
@@ -66,8 +65,7 @@ class StoryScene extends Phaser.Scene {
       case 2: this.showScene3(W, H, CY); break;
     }
 
-    // Auto-advance after 5 seconds
-    this._autoTimer = this.time.delayedCall(5000, () => this.advance());
+    // No auto-advance — user must tap/click to continue
   }
 
   // ── SCENE 1: Noah at home, excited ────────────────────────────
@@ -115,7 +113,7 @@ class StoryScene extends Phaser.Scene {
       const bx2 = W * 0.75 - 20, by2 = CY - 80;
       const bubble2 = this.drawBubble(bx2, by2, 220, 50, 'down');
       this.stepObjects.push(bubble2);
-      this.typewriter(bx2, by2, 'Nein! Tschüss Mama!', {
+      this.typewriter(bx2, by2, 'Nein! Ich gehe!', {
         fontSize: '17px', fill: '#222222', fontFamily: '"Nunito", sans-serif', fontWeight: '800'
       }, 220);
       // Noah runs off screen
