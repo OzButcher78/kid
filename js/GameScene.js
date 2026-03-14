@@ -790,6 +790,13 @@ class GameScene extends Phaser.Scene {
         this.showFloat(this.player.x, this.player.y - 50, 'SCHILD KAPUTT!', '#ff8800');
         this.events.emit('shieldOff');
       }
+      // Brief invulnerability after shield absorb so overlapping enemies
+      // don't drain all hits in a single frame
+      this.isHurt = true;
+      this.time.delayedCall(400, () => { this.isHurt = false; });
+      // Knockback to push player away from the source
+      const kDir = this.player.flipX ? 1 : -1;
+      this.player.setVelocity(kDir * 150, -180);
       return;
     }
     this.lives--;
