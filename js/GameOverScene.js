@@ -7,6 +7,8 @@ class GameOverScene extends Phaser.Scene {
     this.won   = d.won;
     this.score = d.score || 0;
     this.level = d.level || 1;
+    this.nameSubmitted = false;
+    this.playerName = '';
   }
 
   create() {
