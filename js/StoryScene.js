@@ -100,7 +100,7 @@ class StoryScene extends Phaser.Scene {
     // Mum speech bubble
     const bx1 = W / 3 + 30, by1 = CY - 80;
     this.stepObjects.push(this.drawBubble(bx1, by1, 340, 60, 'down'));
-    this.typewriter(bx1, by1, 'STOPP! Du bleibst schön hier drin!', {
+    this.typewriter(bx1, by1, 'STOPP! Du bleibst hier!', {
       fontSize: '17px', fill: '#cc0000', fontFamily: '"Nunito", sans-serif', fontWeight: '800'
     }, 340);
 
@@ -115,7 +115,7 @@ class StoryScene extends Phaser.Scene {
       const bx2 = W * 0.75 - 20, by2 = CY - 80;
       const bubble2 = this.drawBubble(bx2, by2, 220, 50, 'down');
       this.stepObjects.push(bubble2);
-      this.typewriter(bx2, by2, 'Tschüss Mama!', {
+      this.typewriter(bx2, by2, 'Nein! Tschüss Mama!', {
         fontSize: '17px', fill: '#222222', fontFamily: '"Nunito", sans-serif', fontWeight: '800'
       }, 220);
       // Noah runs off screen
