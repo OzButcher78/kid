@@ -21,5 +21,5 @@ new Phaser.Game({
       debug: false   // true = Hitboxen sichtbar machen
     }
   },
-  scene: [BootScene, MenuScene, GameScene, HUDScene, GameOverScene, TouchControlsScene]
+  scene: [BootScene, MenuScene, StoryScene, GameScene, HUDScene, GameOverScene, TouchControlsScene]
 });

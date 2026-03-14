@@ -66,7 +66,7 @@ class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     btn.on('pointerdown', () => {
       this.cameras.main.fadeOut(400, 0, 0, 0);
-      this.time.delayedCall(400, () => this.scene.start('Game'));
+      this.time.delayedCall(400, () => this.scene.start('Story'));
     });
     this.tweens.add({ targets: btn, scaleX: 1.03, scaleY: 1.03, duration: 600, yoyo: true, repeat: -1 });
   }
@@ -109,7 +109,7 @@ class MenuScene extends Phaser.Scene {
     btn.on('pointerout',  () => btn.setStyle({ fill: '#ffffff' }));
     btn.on('pointerdown', () => {
       this.cameras.main.fadeOut(400, 0, 0, 0);
-      this.time.delayedCall(400, () => this.scene.start('Game'));
+      this.time.delayedCall(400, () => this.scene.start('Story'));
     });
     this.tweens.add({ targets: btn, alpha: 0.75, duration: 700, yoyo: true, repeat: -1 });
   }
