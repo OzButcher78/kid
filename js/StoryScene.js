@@ -1,6 +1,7 @@
 // ════════════════════════════════════
 //  STORY SCENE — retro RPG-style intro cutscene
 //  3 panels with sprites, speech bubbles, and typewriter text
+//  Mandatory — no skipping, auto-advances on timers
 // ════════════════════════════════════
 class StoryScene extends Phaser.Scene {
   constructor() { super({ key: 'Story' }); }
@@ -12,104 +13,67 @@ class StoryScene extends Phaser.Scene {
     this.add.tileSprite(0, 0, W, H, 'bgsheet', 0).setOrigin(0).setAlpha(0.4);
     this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.6);
 
-    // Skip button (always visible)
-    const skip = this.add.text(W - 20, 16, 'SKIP ▶', {
-      fontSize: '16px', fill: '#888888', fontFamily: '"Nunito", sans-serif', fontWeight: '700'
-    }).setOrigin(1, 0).setInteractive({ useHandCursor: true }).setDepth(50);
-    skip.on('pointerdown', () => this.startGame());
-    skip.on('pointerover', () => skip.setStyle({ fill: '#ffffff' }));
-    skip.on('pointerout',  () => skip.setStyle({ fill: '#888888' }));
-
-    // Track current step and objects to clean up
+    // No skip button, no input — fully automatic like classic arcades
     this.step = -1;
     this.stepObjects = [];
-    this.advancing = false;
 
-    // Tap anywhere or press any key to advance
-    this.input.on('pointerdown', (ptr) => {
-      if (ptr.x > W - 100 && ptr.y < 50) return; // skip button zone
-      this.advance();
-    });
-    this.input.keyboard.on('keydown', () => this.advance());
-
-    this.advance();
+    // Start the sequence
+    this.showNextStep();
   }
 
-  advance() {
-    if (this.advancing) return;
-    this.advancing = true;
-
+  showNextStep() {
     // Clean up previous step
     this.stepObjects.forEach(obj => obj.destroy());
     this.stepObjects = [];
 
     this.step++;
     if (this.step >= 3) {
-      this.startGame();
+      // Final pause then start game
+      this.time.delayedCall(800, () => this.startGame());
       return;
     }
 
-    // Small delay before showing next panel
-    this.time.delayedCall(200, () => {
-      this.showStep(this.step);
-      this.advancing = false;
-    });
-  }
-
-  showStep(n) {
     const W = GAME_W, H = GAME_H;
     const CY = H / 2 + 20;
 
-    switch (n) {
+    switch (this.step) {
       case 0: this.showScene1(W, H, CY); break;
       case 1: this.showScene2(W, H, CY); break;
       case 2: this.showScene3(W, H, CY); break;
     }
-
-    // No auto-advance — user must tap/click to continue
   }
 
-  // ── SCENE 1: Noah at home, excited ────────────────────────────
+  // ── SCENE 1: Noah at home, excited (5s) ───────────────────────
   showScene1(W, H, CY) {
-    // Noah sprite (large, center-left)
     const noah = this.add.sprite(W / 2, CY + 30, 'p-idle-0').setScale(3).play('p-idle');
     this.stepObjects.push(noah);
 
-    // Speech bubble
     const bx = W / 2 + 20, by = CY - 80;
     this.stepObjects.push(this.drawBubble(bx, by, 320, 60, 'down'));
     this.typewriter(bx, by, 'Endlich Ferien! Ab nach draußen!', {
       fontSize: '18px', fill: '#222222', fontFamily: '"Nunito", sans-serif', fontWeight: '800'
     }, 320);
 
-    // Tap hint
-    const hint = this.add.text(W / 2, H - 30, '▶ Antippen zum Weitermachen', {
-      fontSize: '12px', fill: '#666666', fontFamily: '"Nunito", sans-serif', fontWeight: '700'
-    }).setOrigin(0.5);
-    this.tweens.add({ targets: hint, alpha: 0.3, duration: 800, yoyo: true, repeat: -1 });
-    this.stepObjects.push(hint);
+    this.time.delayedCall(4500, () => this.showNextStep());
   }
 
-  // ── SCENE 2: Mum blocks the door ─────────────────────────────
+  // ── SCENE 2: Mum blocks the door (7s) ────────────────────────
   showScene2(W, H, CY) {
-    // Mum sprite (left side, large)
     const mum = this.add.sprite(W / 3, CY + 30, 'e-idle-0').setScale(3).play('e-idle');
     this.stepObjects.push(mum);
 
-    // Mum speech bubble
     const bx1 = W / 3 + 30, by1 = CY - 80;
     this.stepObjects.push(this.drawBubble(bx1, by1, 340, 60, 'down'));
     this.typewriter(bx1, by1, 'STOPP! Du bleibst hier!', {
       fontSize: '17px', fill: '#cc0000', fontFamily: '"Nunito", sans-serif', fontWeight: '800'
     }, 340);
 
-    // Noah running away (right side)
     const noah = this.add.sprite(W * 0.75, CY + 30, 'p-idle-0').setScale(3).play('p-walk');
     noah.setFlipX(false);
     this.stepObjects.push(noah);
 
-    // Noah's reply appears after delay
-    this.time.delayedCall(1800, () => {
+    // Noah's reply after mum speaks
+    this.time.delayedCall(2500, () => {
       if (this.step !== 1) return;
       const bx2 = W * 0.75 - 20, by2 = CY - 80;
       const bubble2 = this.drawBubble(bx2, by2, 220, 50, 'down');
@@ -120,23 +84,23 @@ class StoryScene extends Phaser.Scene {
       // Noah runs off screen
       this.tweens.add({ targets: noah, x: W + 60, duration: 1500, ease: 'Quad.In' });
     });
+
+    this.time.delayedCall(6000, () => this.showNextStep());
   }
 
-  // ── SCENE 3: Mum calls all the other mums ────────────────────
+  // ── SCENE 3: Mum calls all the other mums (6s) ───────────────
   showScene3(W, H, CY) {
-    // Mum sprite (center, angry)
     const mum = this.add.sprite(W / 2, CY + 30, 'e-idle-0').setScale(3).play('e-idle').setTint(0xff8888);
     this.stepObjects.push(mum);
 
-    // Mum on phone
     const bx = W / 2 + 10, by = CY - 85;
     this.stepObjects.push(this.drawBubble(bx, by, 380, 60, 'down'));
     this.typewriter(bx, by, 'ALLE MÜTTER! Schnappt ihn euch!', {
       fontSize: '18px', fill: '#cc0000', fontFamily: '"Nunito", sans-serif', fontWeight: '800'
     }, 380);
 
-    // Narrative text after delay
-    this.time.delayedCall(2500, () => {
+    // Narrative text
+    this.time.delayedCall(3000, () => {
       if (this.step !== 2) return;
       const narr = this.add.text(W / 2, H - 60, '...und so begann die Jagd.', {
         fontSize: '20px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
@@ -145,6 +109,8 @@ class StoryScene extends Phaser.Scene {
       this.stepObjects.push(narr);
       this.tweens.add({ targets: narr, alpha: 1, duration: 800 });
     });
+
+    this.time.delayedCall(6000, () => this.showNextStep());
   }
 
   // ── HELPERS ───────────────────────────────────────────────────
@@ -152,12 +118,10 @@ class StoryScene extends Phaser.Scene {
   drawBubble(cx, cy, w, h, pointerDir) {
     const g = this.add.graphics();
     const x = cx - w / 2, y = cy - h / 2;
-    // White rounded rectangle
     g.fillStyle(0xffffff, 0.95);
     g.fillRoundedRect(x, y, w, h, 12);
     g.lineStyle(2, 0x333333, 0.6);
     g.strokeRoundedRect(x, y, w, h, 12);
-    // Pointer triangle
     if (pointerDir === 'down') {
       g.fillStyle(0xffffff, 0.95);
       g.fillTriangle(cx - 10, y + h, cx + 10, y + h, cx, y + h + 16);
