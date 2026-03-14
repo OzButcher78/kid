@@ -26,6 +26,13 @@
 <div id="game"></div>
 <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
 <script>
+/*
+ * SCENES: Boot → Menu → Game (+ HUD parallel) → GameOver
+ * ASSETS: assets/character.png, NPC_OldWoman_01.png, NPC_OldWoman_02.png,
+ *         Background.png, Background-sheet.png, PineTrees.png, Allpieces.png
+ * PHYSICS: Arcade, gravity y=750
+ */
+
 // ═══════════════════════════════════════════════
 //  SPRITE-KONFIGURATION
 // ═══════════════════════════════════════════════
@@ -55,6 +62,9 @@ const LEVEL_W = 5200;
 
 // ════════════════════════════════════
 //  SOUND FX  (Web Audio API – no files needed)
+//  NOTE: SFX.ctx() creates/resumes the AudioContext. Per browser autoplay policy,
+//  AudioContext starts suspended until a user gesture. SFX methods are only ever
+//  called after the player clicks "SPIEL STARTEN", so this is safe.
 // ════════════════════════════════════
 const SFX = {
   _ctx: null,
@@ -219,6 +229,7 @@ class GameScene extends Phaser.Scene {
     this.playerAnim   = '';
     this.projectiles  = [];
     this.wasOnGround  = true;
+    this.groundFrames = 0;
   }
 
   create() {
@@ -255,8 +266,8 @@ class GameScene extends Phaser.Scene {
     // ── PLAYER ───────────────────────────────────────────────────
     this.player = this.physics.add.sprite(120, H - 100, 'player');
     this.player.setScale(2.6).setCollideWorldBounds(true).setDepth(10);
-    this.player.body.setSize(CHAR.frameW * 0.5, CHAR.frameH * 0.85);
-    this.player.body.setOffset(CHAR.frameW * 0.25, CHAR.frameH * 0.12);
+    this.player.body.setSize(CHAR.frameW * 0.5, CHAR.frameH * 0.72);
+    this.player.body.setOffset(CHAR.frameW * 0.25, CHAR.frameH * 0.26);
     this.setPlayerAnim('p-idle');
 
     // ── ENEMIES ──────────────────────────────────────────────────
@@ -329,13 +340,13 @@ class GameScene extends Phaser.Scene {
 
   spawnEnemies(H) {
     [
-      [430,  H-75,  'enemy1', 100], [830,  H-75,  'enemy2', 80],
-      [1210, H-185, 'enemy1',  90], [1630, H-228, 'enemy2', 65],
-      [2060, H-75,  'enemy1', 110], [2390, H-188, 'enemy2', 75],
-      [2760, H-75,  'enemy1',  95], [3110, H-228, 'enemy2', 70],
-      [3530, H-268, 'enemy1',  85], [3890, H-75,  'enemy2', 90],
-      [4320, H-223, 'enemy1',  80], [4660, H-75,  'enemy2',100],
-      [4980, H-193, 'enemy1',  90],
+      [430,  H-78,  'enemy1', 100], [830,  H-78,  'enemy2', 80],
+      [1210, H-187, 'enemy1',  90], [1630, H-230, 'enemy2', 65],
+      [2060, H-78,  'enemy1', 110], [2390, H-190, 'enemy2', 75],
+      [2760, H-78,  'enemy1',  95], [3110, H-230, 'enemy2', 70],
+      [3530, H-270, 'enemy1',  85], [3890, H-78,  'enemy2', 90],
+      [4320, H-225, 'enemy1',  80], [4660, H-78,  'enemy2',100],
+      [4980, H-195, 'enemy1',  90],
     ].forEach(([x, y, key, patrol]) => {
       const e = this.physics.add.sprite(x, y, key);
       e.setScale(2.0).setCollideWorldBounds(true).setDepth(8);
@@ -345,8 +356,11 @@ class GameScene extends Phaser.Scene {
       e.direction   = 1;
       e.shootTimer  = Phaser.Math.Between(80, 200);
       e.curAnim     = '';
-      e.body.setSize(NPC.frameW * 0.52, NPC.frameH * 0.78);
-      e.body.setOffset(NPC.frameW * 0.24, NPC.frameH * 0.18);
+      e.chasing     = false;
+      e.jumpCooldown = 0;
+      e.speedMult   = 1;
+      e.body.setSize(NPC.frameW * 0.52, NPC.frameH * 0.65);
+      e.body.setOffset(NPC.frameW * 0.24, NPC.frameH * 0.33);
       this.setEnemyAnim(e, key === 'enemy1' ? 'e1-walk' : 'e2-walk');
       this.enemies.add(e);
     });
@@ -414,7 +428,9 @@ class GameScene extends Phaser.Scene {
   }
 
   handlePlayer() {
-    const onGround = this.player.body.blocked.down;
+    const rawOnGround = this.player.body.blocked.down;
+    this.groundFrames = rawOnGround ? this.groundFrames + 1 : 0;
+    const onGround = this.groundFrames >= 2;
     if (onGround) this.jumpCount = 0;
 
     // Landing sound: was in air, now on ground
@@ -448,8 +464,8 @@ class GameScene extends Phaser.Scene {
 
     if (jump && this.jumpCount < 2) {
       const vel = this.jumpCount === 0
-        ? (this.hasSuperBoot ? -660 : -510)
-        : -370;
+        ? (this.hasSuperBoot ? -660 : -510) // first jump: -510 normal, -660 with super boots
+        : -370;                              // double jump velocity
       this.player.setVelocityY(vel);
       this.jumpCount++;
       SFX.jump();
@@ -460,27 +476,61 @@ class GameScene extends Phaser.Scene {
   handleEnemies() {
     this.enemies.getChildren().forEach(e => {
       if (!e.active) return;
+      e.speedMult = e.speedMult || 1; // guard: prevent NaN velocities if speedMult is missing
       const distX = this.player.x - e.x;
+      const distY = this.player.y - e.y;
       const dist  = Math.abs(distX);
+      const distYAbs = Math.abs(distY);
 
-      if (e.enemyType === 'enemy2' && dist < 260) {
-        const dir = distX > 0 ? 1 : -1;
-        e.setVelocityX(dir * 72);
-        e.setFlipX(dir < 0);
-        this.setEnemyAnim(e, 'e2-walk');
-        return;
+      // Decrement jump cooldown each frame
+      if (e.jumpCooldown > 0) e.jumpCooldown--;
+
+      // Determine chase/patrol mode
+      const canChase = dist < 350 && distYAbs < 120;
+      const chaseLimitX = 500;
+      const patrolExtended = 200;
+
+      if (canChase) {
+        e.chasing = true;
+      } else if (e.chasing) {
+        // Stop chasing if player moves too far away or enemy is beyond extended patrol zone
+        if (dist > chaseLimitX ||
+            e.x < e.patrolStart - patrolExtended ||
+            e.x > e.patrolEnd   + patrolExtended) {
+          e.chasing = false;
+        }
       }
 
-      e.setVelocityX(e.direction * 52);
-      e.setFlipX(e.direction < 0);
-      this.setEnemyAnim(e, e.enemyType === 'enemy1' ? 'e1-walk' : 'e2-walk');
-      if (e.x <= e.patrolStart) e.direction =  1;
-      if (e.x >= e.patrolEnd)   e.direction = -1;
+      if (e.chasing) {
+        // Chase mode
+        const dir = distX > 0 ? 1 : -1;
+        const baseSpeed = e.enemyType === 'enemy1' ? 115 : 140;
+        const speed = baseSpeed * e.speedMult;
+        e.setVelocityX(dir * speed);
+        e.setFlipX(dir < 0);
+        e.direction = dir;
+        this.setEnemyAnim(e, e.enemyType === 'enemy1' ? 'e1-walk' : 'e2-walk');
+
+        // Jump down to chase player on lower level
+        if (distY > 80 && e.body.blocked.down && e.jumpCooldown === 0) {
+          e.setVelocityY(-380); // enemy hop to reach lower platform
+          e.jumpCooldown = 120;
+        }
+      } else {
+        // Patrol mode
+        e.setVelocityX(e.direction * 52 * e.speedMult);
+        e.setFlipX(e.direction < 0);
+        this.setEnemyAnim(e, e.enemyType === 'enemy1' ? 'e1-walk' : 'e2-walk');
+        if (e.x <= e.patrolStart) e.direction =  1;
+        if (e.x >= e.patrolEnd)   e.direction = -1;
+      }
 
       if (e.enemyType === 'enemy1') {
         e.shootTimer--;
         if (e.shootTimer <= 0 && dist < 400 && dist > 55) {
-          e.shootTimer = Phaser.Math.Between(110, 180);
+          e.shootTimer = e.chasing
+            ? Phaser.Math.Between(50, 90)
+            : Phaser.Math.Between(110, 180);
           this.throwShoe(e);
           this.setEnemyAnim(e, 'e1-attack');
           this.time.delayedCall(650, () => { if (e?.active) this.setEnemyAnim(e, 'e1-walk'); });
@@ -553,11 +603,49 @@ class GameScene extends Phaser.Scene {
       this.showFloat(enemy.x, enemy.y - 20, '+100', '#ffd700');
       this.spawnParticles(enemy.x, enemy.y, 0xff6666, 8);
       SFX.stomp();
+      this.respawnEnemy(enemy);
       enemy.destroy();
       player.setVelocityY(-300);
     } else {
       this.takeDamage();
     }
+  }
+
+  respawnEnemy(deadEnemy) {
+    const H = GAME_H;
+    const px = this.player.x;
+    // Pick a spawn point 800-1200px away from player, clamped to level bounds
+    const offset = Phaser.Math.Between(800, 1200) * (Math.random() < 0.5 ? -1 : 1);
+    const spawnX = Phaser.Math.Clamp(px + offset, 60, LEVEL_W - 60);
+    const spawnY = H - 78;
+    const key    = deadEnemy.enemyType;
+    const oldMult = deadEnemy.speedMult || 1;
+    const newMult = Math.min(oldMult * 1.3, 1.6);
+    const patrol  = 100;
+
+    this.time.delayedCall(3000, () => {
+      if (this.gameOver) return;
+      const e = this.physics.add.sprite(spawnX, spawnY, key);
+      e.setScale(2.0).setCollideWorldBounds(true).setDepth(8);
+      e.enemyType    = key;
+      e.patrolStart  = spawnX - patrol;
+      e.patrolEnd    = spawnX + patrol;
+      e.direction    = 1;
+      e.shootTimer   = Phaser.Math.Between(60, 140);
+      e.curAnim      = '';
+      e.chasing      = false;
+      e.jumpCooldown = 0;
+      e.speedMult    = newMult;
+      e.body.setSize(NPC.frameW * 0.52, NPC.frameH * 0.65);
+      e.body.setOffset(NPC.frameW * 0.24, NPC.frameH * 0.33);
+      this.setEnemyAnim(e, key === 'enemy1' ? 'e1-walk' : 'e2-walk');
+      // Adding e to this.enemies automatically includes it in the group colliders
+      // registered in create(): enemies↔platforms and player↔enemies.
+      // Do NOT add per-object colliders here — they accumulate on every respawn.
+      this.enemies.add(e);
+      // Flash to signal respawn
+      this.showFloat(spawnX, spawnY - 40, 'ZURÜCK!', '#ff6600');
+    });
   }
 
   onCollect(player, trigger) {
@@ -630,10 +718,11 @@ class GameScene extends Phaser.Scene {
     SFX.hurt();
     this.events.emit('livesChanged', this.lives);
     this.cameras.main.shake(220, 0.013);
+    this.showFloat(this.player.x, this.player.y - 50, '-1 LEBEN', '#ff4444');
 
     // Force hurt animation
-    this.playerAnim = '';
     this.player.play('p-hurt', true);
+    this.playerAnim = 'p-hurt';
     this.player.setTint(0xff4444);
 
     const kDir = this.player.flipX ? 1 : -1;
@@ -646,7 +735,16 @@ class GameScene extends Phaser.Scene {
         this.player.setAlpha(1);
         this.player.clearTint();
         this.isHurt = false;
-        this.playerAnim = '';
+        const onGround = this.player.body.blocked.down;
+        const movingX = Math.abs(this.player.body.velocity.x) > 10;
+        const airborne = Math.abs(this.player.body.velocity.y) > 50;
+        if (!onGround && airborne) {
+          this.playerAnim = 'p-jump';
+        } else if (onGround && movingX) {
+          this.playerAnim = 'p-walk';
+        } else {
+          this.playerAnim = 'p-idle';
+        }
       }
     });
 
