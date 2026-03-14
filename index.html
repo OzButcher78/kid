@@ -368,16 +368,36 @@ class GameScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, W, H);
     this.cameras.main.startFollow(this.player, true, 0.1, 0.12);
 
-    // ── BACKGROUND MUSIC ─────────────────────────────────────────
-    // Loaded and played here (after user clicked SPIEL STARTEN) so AudioContext
-    // is already active — avoids Phaser 3.60 audio-decode hang in BootScene preload.
+    // ── BACKGROUND MUSIC & SOUND EFFECTS ─────────────────────────
+    // All audio loaded lazily here (after user clicked SPIEL STARTEN) so the
+    // AudioContext is already active — avoids Phaser 3.60 audio-decode hang.
     this.music = null;
-    this.load.audio('music', 'assets/music.mp3');
+    const sfxBase = 'assets/sound-effects/';
+    this.load.audio('music',       'assets/music2.mp3');
+    this.load.audio('snd-jump',    sfxBase + 'Woosh_1.ogg');
+    this.load.audio('snd-land',    sfxBase + 'Thud1.ogg');
+    this.load.audio('snd-stomp',   sfxBase + 'Crunch_1.ogg');
+    this.load.audio('snd-hurt',    sfxBase + 'Thudd1.mp3');
+    this.load.audio('snd-shoe',    sfxBase + 'Woosh_2.ogg');
+    this.load.audio('snd-blocked', sfxBase + 'Parry1.ogg');
+    this.load.audio('snd-collect', sfxBase + 'Clickandrelease_1.ogg');
+    this.load.audio('snd-win',     sfxBase + 'sucess1.mp3');
+    this.load.audio('snd-gameover',sfxBase + 'RegularShowShort.ogg');
     this.load.once('complete', () => {
       try {
         this.music = this.sound.add('music', { loop: true, volume: 0.35 });
         this.music.play();
       } catch(e) { console.warn('Music failed to start:', e); }
+      const vol = (k, v) => { try { this[k] = this.sound.add(k, { volume: v }); } catch(e) {} };
+      vol('snd-jump',     0.30);
+      vol('snd-land',     0.25);
+      vol('snd-stomp',    0.50);
+      vol('snd-hurt',     0.55);
+      vol('snd-shoe',     0.28);
+      vol('snd-blocked',  0.50);
+      vol('snd-collect',  0.40);
+      vol('snd-win',      0.55);
+      vol('snd-gameover', 0.55);
     });
     this.load.start();
     this.events.once('shutdown', () => { this.music?.stop(); });
@@ -526,7 +546,7 @@ class GameScene extends Phaser.Scene {
     if (onGround) this.jumpCount = 0;
 
     // Landing sound: was in air, now on ground
-    if (onGround && !this.wasOnGround) SFX.land();
+    if (onGround && !this.wasOnGround) this['snd-land']?.play();
     this.wasOnGround = onGround;
 
     const left  = this.cursors.left.isDown  || this.aKey.isDown;
@@ -560,7 +580,7 @@ class GameScene extends Phaser.Scene {
         : -370;                              // double jump velocity
       this.player.setVelocityY(vel);
       this.jumpCount++;
-      SFX.jump();
+      this['snd-jump']?.play();
       this.spawnParticles(this.player.x, this.player.y + 30, 0xffffff, 4);
     }
   }
@@ -668,7 +688,7 @@ class GameScene extends Phaser.Scene {
     fruit.isActive = true;
     this.projectiles.push(fruit);
 
-    SFX.shoe();
+    this['snd-shoe']?.play();
     this.time.delayedCall(3200, () => this.destroyProjectile(fruit));
   }
 
@@ -714,7 +734,7 @@ class GameScene extends Phaser.Scene {
       this.score += 100;
       this.showFloat(enemy.x, enemy.y - 20, '+100', '#ffd700');
       this.spawnParticles(enemy.x, enemy.y, 0xff6666, 8);
-      SFX.stomp();
+      this['snd-stomp']?.play();
       this.respawnEnemy(enemy);
       enemy.destroy();
       player.setVelocityY(-300);
@@ -820,7 +840,7 @@ class GameScene extends Phaser.Scene {
     this.respawnX = zone.respawnX;
     this.respawnY = zone.respawnY;
     this.showFloat(zone.respawnX, zone.respawnY - 80, 'CHECKPOINT!', '#00ff88');
-    SFX.collect();
+    this['snd-collect']?.play();
   }
 
   onBoxHit(player, box) {
@@ -867,7 +887,7 @@ class GameScene extends Phaser.Scene {
 
   // Shared power-up application (used by both box rewards and onCollect)
   applyPowerup(type, x, y) {
-    SFX.collect();
+    this['snd-collect']?.play();
     this.score += 50;
     this.spawnParticles(x, y, 0xffffff, 6);
     switch (type) {
@@ -919,7 +939,7 @@ class GameScene extends Phaser.Scene {
     this.endSprite?.setTexture('end-press');
     this.physics.pause();
     this.music?.stop();
-    SFX.win();
+    this['snd-win']?.play();
     this.cameras.main.flash(500, 255, 255, 100);
     this.time.delayedCall(900, () => {
       this.scene.stop('HUD');
@@ -933,13 +953,13 @@ class GameScene extends Phaser.Scene {
       this.hasShield = false;
       this.events.emit('shieldOff');
       this.showFloat(this.player.x, this.player.y - 50, 'GEBLOCKT!', '#ffd700');
-      SFX.blocked();
+      this['snd-blocked']?.play();
       this.cameras.main.shake(100, 0.006);
       return;
     }
     this.lives--;
     this.isHurt = true;
-    SFX.hurt();
+    this['snd-hurt']?.play();
     this.events.emit('livesChanged', this.lives);
     this.cameras.main.shake(220, 0.013);
     this.showFloat(this.player.x, this.player.y - 50, '-1 LEBEN', '#ff4444');
@@ -975,7 +995,7 @@ class GameScene extends Phaser.Scene {
     if (this.lives <= 0) {
       this.gameOver = true;
       this.music?.stop();
-      SFX.gameover();
+      this['snd-gameover']?.play();
       this.time.delayedCall(800, () => {
         this.scene.stop('HUD');
         this.scene.start('GameOver', { won: false, score: this.score });
