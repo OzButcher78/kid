@@ -286,7 +286,7 @@ class GameScene extends Phaser.Scene {
     this.wasOnGround  = true;
     this.groundFrames = 0;
     this.respawnX     = 120;   // updated when player touches a checkpoint
-    this.respawnY     = GAME_H - 100;
+    this.respawnY     = GAME_H - 68;
   }
 
   create() {
@@ -321,9 +321,9 @@ class GameScene extends Phaser.Scene {
     this.buildLevel(W, H);
 
     // ── PLAYER ───────────────────────────────────────────────────
-    this.player = this.physics.add.sprite(120, H - 100, 'p-idle-0');
+    this.player = this.physics.add.sprite(120, H - 68, 'p-idle-0');
     this.player.setScale(1.5).setCollideWorldBounds(true).setDepth(10);
-    this.player.body.setSize(30, 46);   // 64×0.47 wide, 64×0.72 tall (unscaled)
+    this.player.body.setSize(30, 42);   // body.bottom = y+36, aligns with visual feet (8px transparent at bottom of 64px sprite)
     this.player.body.setOffset(17, 14); // center horizontally, skip top of frame
     this.setPlayerAnim('p-idle');
 
@@ -347,9 +347,8 @@ class GameScene extends Phaser.Scene {
       runChildUpdate: false,
     });
 
-    // ── COLLECTIBLES ─────────────────────────────────────────────
+    // Collectibles are now only found inside boxes (see spawnBoxes)
     this.collTriggers = this.physics.add.staticGroup();
-    this.spawnCollectibles(H);
 
     // ── GOAL ─────────────────────────────────────────────────────
     this.endSprite = this.add.image(W - 155, H - 100, 'end-idle').setScale(2).setDepth(5).setOrigin(0.5, 1);
@@ -428,16 +427,16 @@ class GameScene extends Phaser.Scene {
 
   spawnEnemies(H) {
     // Spawn Y formula: platform top = H - platformCenter - 10
-    //   body bottom = sprite.y + 42  (setSize 30×46, setOffset 17×14, scale 1.5)
-    //   spawn_y = platform_top - 42 = H - platformCenter - 52
-    // Ground (center H-16, top H-32): spawn_y = H-74
+    //   body bottom = sprite.y + 36  (setSize 30×42, setOffset 17×14, scale 1.5)
+    //   spawn_y = platform_top - 36 = H - platformCenter - 46
+    // Ground (center H-16, top H-32): spawn_y = H-68
     [
-      [500,  H-74,  'enemy1', 150],  // ground
-      [860,  H-182, 'enemy2',  85],  // platform H-130 (top H-140), patrolRange within platform
-      [1660, H-300, 'enemy1',  70],  // platform H-248 (top H-258)
-      [2500, H-74,  'enemy2', 150],  // ground
-      [3260, H-244, 'enemy1',  85],  // platform H-192 (top H-202)
-      [4540, H-230, 'enemy2',  80],  // platform H-178 (top H-188)
+      [500,  H-68,  'enemy1', 150],  // ground
+      [860,  H-176, 'enemy2',  85],  // platform H-130 (top H-140)
+      [1660, H-294, 'enemy1',  70],  // platform H-248 (top H-258)
+      [2500, H-68,  'enemy2', 150],  // ground
+      [3260, H-238, 'enemy1',  85],  // platform H-192 (top H-202)
+      [4540, H-224, 'enemy2',  80],  // platform H-178 (top H-188)
     ].forEach(([x, y, key, patrol]) => {
       const e = this.physics.add.sprite(x, y, 'e-idle-0');
       e.setScale(1.5).setCollideWorldBounds(true).setDepth(8);
@@ -446,12 +445,12 @@ class GameScene extends Phaser.Scene {
       e.patrolStart = x - patrol;
       e.patrolEnd   = x + patrol;
       e.direction   = 1;
-      e.shootTimer  = Phaser.Math.Between(80, 200);
+      e.shootTimer  = Phaser.Math.Between(150, 300);
       e.attacking   = false;
       e.chasing     = false;
       e.jumpCooldown = 0;
       e.speedMult   = 1;
-      e.body.setSize(30, 46);   // match player body size for consistent ground alignment
+      e.body.setSize(30, 42);   // body.bottom = y+36, matches player body for consistent ground alignment
       e.body.setOffset(17, 14);
       this.setEnemyAnim(e, 'e-walk');
       this.enemies.add(e);
@@ -628,8 +627,8 @@ class GameScene extends Phaser.Scene {
         e.shootTimer--;
         if (e.shootTimer <= 0 && dist < 400 && dist > 55) {
           e.shootTimer = e.chasing
-            ? Phaser.Math.Between(50, 90)
-            : Phaser.Math.Between(110, 180);
+            ? Phaser.Math.Between(100, 150)
+            : Phaser.Math.Between(180, 280);
           this.throwFruit(e);
           e.attacking = true;
           this.setEnemyAnim(e, 'e-punch');
@@ -683,7 +682,9 @@ class GameScene extends Phaser.Scene {
 
 
   checkProjectiles() {
-    const pb = this.player.getBounds();
+    // Use physics body bounds for tight hit detection (display bounds are inflated by scale)
+    const p = this.player.body;
+    const pb = new Phaser.Geom.Rectangle(p.x, p.y, p.width, p.height);
     for (let i = this.projectiles.length - 1; i >= 0; i--) {
       const shoe = this.projectiles[i];
       if (!shoe?.active || !shoe.isActive) {
@@ -696,8 +697,10 @@ class GameScene extends Phaser.Scene {
         this.projectiles.splice(i, 1);
         continue;
       }
-      // Hit player
-      if (Phaser.Geom.Intersects.RectangleToRectangle(shoe.getBounds(), pb)) {
+      // Hit player — use body bounds so only direct hits register
+      const sb = shoe.body;
+      if (sb && Phaser.Geom.Intersects.RectangleToRectangle(
+          new Phaser.Geom.Rectangle(sb.x, sb.y, sb.width, sb.height), pb)) {
         this.destroyProjectile(shoe);
         this.projectiles.splice(i, 1);
         this.takeDamage();
@@ -726,7 +729,7 @@ class GameScene extends Phaser.Scene {
     // Pick a spawn point 800-1200px away from player, clamped to level bounds
     const offset = Phaser.Math.Between(800, 1200) * (Math.random() < 0.5 ? -1 : 1);
     const spawnX = Phaser.Math.Clamp(px + offset, 60, LEVEL_W - 60);
-    const spawnY = H - 74;
+    const spawnY = H - 68;
     const key    = deadEnemy.enemyType;
     const oldMult = deadEnemy.speedMult || 1;
     const newMult = Math.min(oldMult * 1.3, 1.6);
@@ -741,12 +744,12 @@ class GameScene extends Phaser.Scene {
       e.patrolStart  = spawnX - patrol;
       e.patrolEnd    = spawnX + patrol;
       e.direction    = 1;
-      e.shootTimer   = Phaser.Math.Between(60, 140);
+      e.shootTimer   = Phaser.Math.Between(120, 220);
       e.attacking    = false;
       e.chasing      = false;
       e.jumpCooldown = 0;
       e.speedMult    = newMult;
-      e.body.setSize(30, 46);
+      e.body.setSize(30, 42);
       e.body.setOffset(17, 14);
       this.setEnemyAnim(e, 'e-walk');
       // Adding e to this.enemies automatically includes it in the group colliders
@@ -760,20 +763,26 @@ class GameScene extends Phaser.Scene {
 
   spawnBoxes(H) {
     // [x, y, boxType (1-3), reward ('shield'|'star'|'heart'|'boots'|'fruit')]
-    // Box Y = bottom of box. Formula: platform_top - 89
+    // Box Y = bottom of box (origin 0.5, 1). Formula: platform_top - 89
     //   platform_top = H - platformCenter - 10
     //   so box_y = H - platformCenter - 99
-    // This places the box 89px above the platform surface — player walks under it and
-    // jumps from below to trigger the reward.
+    // This places the box 89px above the platform surface — player walks under it
+    // and jumps up to hit it from below, breaking it open for the reward inside.
+    // All power-ups come exclusively from boxes (no free-floating collectibles).
     const boxDefs = [
       [340,  H-209, 1, 'heart'  ],  // platform H-110 (top H-120)
+      [600,  H-284, 2, 'boots'  ],  // platform H-185 (top H-195)
       [860,  H-229, 2, 'star'   ],  // platform H-130 (top H-140)
       [1150, H-309, 3, 'shield' ],  // platform H-210 (top H-220)
+      [1400, H-254, 1, 'star'   ],  // platform H-155 (top H-165)
       [1910, H-274, 1, 'boots'  ],  // platform H-175 (top H-185)
-      [2470, H-307, 2, 'heart'  ],  // platform H-208 (top H-218)
+      [2210, H-394, 2, 'heart'  ],  // platform H-295 (top H-305)
+      [2470, H-307, 2, 'shield' ],  // platform H-208 (top H-218)
       [2970, H-347, 3, 'star'   ],  // platform H-248 (top H-258)
       [3260, H-291, 1, 'shield' ],  // platform H-192 (top H-202)
-      [4790, H-397, 3, 'fruit'  ],  // platform H-298 (top H-308)
+      [3760, H-302, 3, 'boots'  ],  // platform H-203 (top H-213)
+      [4290, H-342, 1, 'star'   ],  // platform H-243 (top H-253)
+      [4790, H-397, 3, 'heart'  ],  // platform H-298 (top H-308)
     ];
     boxDefs.forEach(([x, y, type, reward]) => {
       const key = `box${type}`;
@@ -799,7 +808,7 @@ class GameScene extends Phaser.Scene {
       zone.cpActivated = false;
       zone.cpIndex    = i;
       zone.respawnX   = x;
-      zone.respawnY   = H - 100;
+      zone.respawnY   = H - 68;
       this.physics.add.overlap(this.player, zone, this.onCheckpoint, null, this);
     });
   }
