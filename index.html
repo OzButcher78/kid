@@ -54,6 +54,49 @@ const GAME_H  = 560;
 const LEVEL_W = 5200;
 
 // ════════════════════════════════════
+//  SOUND FX  (Web Audio API – no files needed)
+// ════════════════════════════════════
+const SFX = {
+  _ctx: null,
+  ctx() {
+    if (!this._ctx) this._ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (this._ctx.state === 'suspended') this._ctx.resume();
+    return this._ctx;
+  },
+  _tone(type, freqStart, freqEnd, dur, vol = 0.22, delay = 0) {
+    try {
+      const c = this.ctx(), t = c.currentTime + delay;
+      const o = c.createOscillator(), g = c.createGain();
+      o.connect(g); g.connect(c.destination);
+      o.type = type;
+      o.frequency.setValueAtTime(freqStart, t);
+      if (freqEnd !== freqStart) o.frequency.exponentialRampToValueAtTime(freqEnd, t + dur);
+      g.gain.setValueAtTime(vol, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      o.start(t); o.stop(t + dur);
+    } catch(e) {}
+  },
+  jump()     { this._tone('square',   180, 480, 0.14, 0.18); },
+  land()     { this._tone('sine',     130,  65, 0.09, 0.28); },
+  stomp()    { this._tone('sawtooth', 220,  80, 0.22, 0.30); },
+  hurt()     { this._tone('sawtooth', 380, 140, 0.28, 0.28); },
+  shoe()     { this._tone('triangle', 290, 170, 0.09, 0.14); },
+  blocked()  { this._tone('sine',     550, 660, 0.10, 0.22); },
+  collect()  {
+    this._tone('sine', 520, 780, 0.10, 0.22, 0.00);
+    this._tone('sine', 780, 960, 0.10, 0.22, 0.10);
+  },
+  win() {
+    [261, 329, 392, 523].forEach((f, i) =>
+      this._tone('sine', f, f, 0.22, 0.22, i * 0.13));
+  },
+  gameover() {
+    [380, 280, 200, 140].forEach((f, i) =>
+      this._tone('sawtooth', f, f * 0.7, 0.28, 0.28, i * 0.16));
+  },
+};
+
+// ════════════════════════════════════
 //  BOOT SCENE
 // ════════════════════════════════════
 class BootScene extends Phaser.Scene {
@@ -175,6 +218,7 @@ class GameScene extends Phaser.Scene {
     this.gameOver     = false;
     this.playerAnim   = '';
     this.projectiles  = [];
+    this.wasOnGround  = true;
   }
 
   create() {
@@ -373,6 +417,10 @@ class GameScene extends Phaser.Scene {
     const onGround = this.player.body.blocked.down;
     if (onGround) this.jumpCount = 0;
 
+    // Landing sound: was in air, now on ground
+    if (onGround && !this.wasOnGround) SFX.land();
+    this.wasOnGround = onGround;
+
     const left  = this.cursors.left.isDown  || this.aKey.isDown;
     const right = this.cursors.right.isDown || this.dKey.isDown;
     const jump  = Phaser.Input.Keyboard.JustDown(this.cursors.up)  ||
@@ -392,14 +440,19 @@ class GameScene extends Phaser.Scene {
       if (onGround && !this.isHurt) this.setPlayerAnim('p-idle');
     }
 
-    if (!onGround && !this.isHurt) this.setPlayerAnim('p-jump');
+    // Only switch to jump animation if meaningfully airborne (velocity threshold
+    // prevents idle↔jump flicker when physics blocked.down toggles on platform edges)
+    if (!onGround && !this.isHurt && Math.abs(this.player.body.velocity.y) > 50) {
+      this.setPlayerAnim('p-jump');
+    }
 
     if (jump && this.jumpCount < 2) {
       const vel = this.jumpCount === 0
-        ? (this.hasSuperBoot ? -570 : -430)
-        : -290;
+        ? (this.hasSuperBoot ? -660 : -510)
+        : -370;
       this.player.setVelocityY(vel);
       this.jumpCount++;
+      SFX.jump();
       this.spawnParticles(this.player.x, this.player.y + 30, 0xffffff, 4);
     }
   }
@@ -459,7 +512,7 @@ class GameScene extends Phaser.Scene {
 
     // Spin tween
     this.tweens.add({ targets: [shoe, trim], angle: dirX * 360, duration: 450, repeat: -1 });
-
+    SFX.shoe();
     this.time.delayedCall(3200, () => this.destroyShoe(shoe));
   }
 
@@ -499,6 +552,7 @@ class GameScene extends Phaser.Scene {
       this.score += 100;
       this.showFloat(enemy.x, enemy.y - 20, '+100', '#ffd700');
       this.spawnParticles(enemy.x, enemy.y, 0xff6666, 8);
+      SFX.stomp();
       enemy.destroy();
       player.setVelocityY(-300);
     } else {
@@ -512,6 +566,7 @@ class GameScene extends Phaser.Scene {
     trigger.visuals?.forEach(v => v.destroy());
     trigger.destroy();
     this.score += 50;
+    SFX.collect();
     this.spawnParticles(player.x, player.y - 20, 0xffffff, 6);
 
     switch (type) {
@@ -552,6 +607,7 @@ class GameScene extends Phaser.Scene {
     if (this.gameOver) return;
     this.gameOver = true;
     this.physics.pause();
+    SFX.win();
     this.cameras.main.flash(500, 255, 255, 100);
     this.time.delayedCall(900, () => {
       this.scene.stop('HUD');
@@ -565,11 +621,13 @@ class GameScene extends Phaser.Scene {
       this.hasShield = false;
       this.events.emit('shieldOff');
       this.showFloat(this.player.x, this.player.y - 50, 'GEBLOCKT!', '#ffd700');
+      SFX.blocked();
       this.cameras.main.shake(100, 0.006);
       return;
     }
     this.lives--;
     this.isHurt = true;
+    SFX.hurt();
     this.events.emit('livesChanged', this.lives);
     this.cameras.main.shake(220, 0.013);
 
@@ -594,6 +652,7 @@ class GameScene extends Phaser.Scene {
 
     if (this.lives <= 0) {
       this.gameOver = true;
+      SFX.gameover();
       this.time.delayedCall(800, () => {
         this.scene.stop('HUD');
         this.scene.start('GameOver', { won: false, score: this.score });
