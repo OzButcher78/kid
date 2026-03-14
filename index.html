@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Kid vs. Mütter 👦👵</title>
+  <title>Kind vs. Mütter 👦👵</title>
   <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet" />
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -159,6 +159,11 @@ class BootScene extends Phaser.Scene {
     this.load.image('cp-idle',   encodeURI('assets/Checkpoints/Checkpoint/Checkpoint (Flag Idle)(64x64).png'));
     this.load.image('end-idle',  encodeURI('assets/Checkpoints/End/End (Idle).png'));
     this.load.image('end-press', encodeURI('assets/Checkpoints/End/End (Pressed) (64x64).png'));
+
+    // New UI assets
+    this.load.spritesheet('shield-ring', 'assets/03.png', { frameWidth: 48, frameHeight: 36 });
+    this.load.spritesheet('health-bar',  'assets/05.png', { frameWidth: 48, frameHeight: 32 });
+    this.load.spritesheet('bonus-bars',  'assets/06.png', { frameWidth: 128, frameHeight: 24 });
   }
 
   create() {
@@ -193,6 +198,9 @@ class BootScene extends Phaser.Scene {
         }
         this.anims.create({ key: `fruit-${name}`, frames, frameRate: 15, repeat: -1 });
       });
+
+      // Shield ring animation (row 1 of 03.png, frames 0-4)
+      this.anims.create({ key: 'shield-ring', frames: this.anims.generateFrameNumbers('shield-ring', { start: 0, end: 4 }), frameRate: 8, repeat: -1 });
 
       this.scene.start('Menu');
     } catch(err) {
@@ -229,11 +237,11 @@ class MenuScene extends Phaser.Scene {
     const e2 = this.add.sprite(630, H - 58, 'e-walk-0').setScale(1.5).play('e-walk').setTint(0xffbbcc);
     e1.setFlipX(true);
 
-    this.add.text(W / 2, 65, 'KID vs. MÜTTER', {
+    this.add.text(W / 2, 65, 'KIND vs. MÜTTER', {
       fontSize: '26px', fill: '#ffd700', fontFamily: '"Press Start 2P"',
       stroke: '#5a0000', strokeThickness: 6
     }).setOrigin(0.5);
-    this.add.text(W / 2, 108, 'rettet den Spielplatz!', {
+    this.add.text(W / 2, 108, 'enkommt die Müttern', {
       fontSize: '10px', fill: '#ffcccc', fontFamily: '"Press Start 2P"'
     }).setOrigin(0.5);
 
@@ -246,8 +254,10 @@ class MenuScene extends Phaser.Scene {
     this.add.text(W / 2, 298, 'EINSAMMELN:', {
       fontSize: '10px', fill: '#ffffff', fontFamily: '"Press Start 2P"'
     }).setOrigin(0.5);
-    [['Schild (gelb)', 'nächsten Treffer blocken'], ['Stern (gelb)', '5 Sek. unverwundbar'],
-     ['Herz (rot)', '+1 Leben'], ['Stiefel (blau)', 'höher springen']]
+    [['Schild (gold)', 'Nächster Treffer geblockt'],
+     ['Turbo (cyan)', '8 Sek. schneller laufen'],
+     ['Apfel (orange)', '3 Äpfel werfen — Taste Q'],
+     ['Herz (rot)', '+1 Leben']]
       .forEach(([item, desc], i) => this.add.text(W / 2, 324 + i * 24, `• ${item}: ${desc}`, {
         fontSize: '8px', fill: '#cccccc', fontFamily: '"Press Start 2P"'
       }).setOrigin(0.5));
@@ -276,8 +286,10 @@ class GameScene extends Phaser.Scene {
     this.lives        = 3;
     this.score        = 0;
     this.hasShield    = false;
-    this.isStarPow    = false;
-    this.hasSuperBoot = false;
+    this.hasSpeed     = false;   // speed boost active
+    this.hasApple     = false;   // apple throwing active
+    this.appleCount   = 0;       // apples remaining
+    this.playerApples = [];      // active player-thrown apples
     this.isHurt       = false;
     this.jumpCount    = 0;
     this.gameOver     = false;
@@ -285,7 +297,7 @@ class GameScene extends Phaser.Scene {
     this.projectiles  = [];
     this.wasOnGround  = true;
     this.groundFrames = 0;
-    this.respawnX     = 120;   // updated when player touches a checkpoint
+    this.respawnX     = 120;
     this.respawnY     = GAME_H - 68;
   }
 
@@ -301,7 +313,7 @@ class GameScene extends Phaser.Scene {
       .setOrigin(0).setScrollFactor(0).setDepth(0);
     this.bg1 = this.add.tileSprite(0, 0, GAME_W, H, 'bgsheet', 1)
       .setOrigin(0).setScrollFactor(0).setDepth(1).setAlpha(0.8);
-    this.bg2 = this.add.tileSprite(0, H - 220, GAME_W, 220, 'bgsheet', 2)
+    this.bg2 = this.add.tileSprite(0, H - 248, GAME_W, 248, 'bgsheet', 2)
       .setOrigin(0).setScrollFactor(0).setDepth(2).setAlpha(0.7);
 
     // Pine trees mid-ground
@@ -309,7 +321,7 @@ class GameScene extends Phaser.Scene {
     for (let i = 0; i < 38; i++) {
       const x  = Phaser.Math.Between(0, W);
       const sc = Phaser.Math.FloatBetween(0.7, 1.5);
-      this.add.image(x, H - 42 - sc * 52, 'pinetrees', treeFrames[i % treeFrames.length])
+      this.add.image(x, H - 70 - sc * 52, 'pinetrees', treeFrames[i % treeFrames.length])
         .setScale(sc)
         .setScrollFactor(sc > 1.1 ? 0.25 : 0.15)
         .setDepth(3)
@@ -326,6 +338,10 @@ class GameScene extends Phaser.Scene {
     this.player.body.setSize(30, 42);   // body.bottom = y+36, aligns with visual feet (8px transparent at bottom of 64px sprite)
     this.player.body.setOffset(17, 14); // center horizontally, skip top of frame
     this.setPlayerAnim('p-idle');
+
+    // Shield ring visual — follows player when shield is active
+    this.shieldRing = this.add.sprite(this.player.x, this.player.y, 'shield-ring', 0)
+      .setScale(2.2).setDepth(9).setVisible(false).setAlpha(0.85);
 
     // ── ENEMIES ──────────────────────────────────────────────────
     this.enemies = this.physics.add.group();
@@ -373,31 +389,44 @@ class GameScene extends Phaser.Scene {
     // AudioContext is already active — avoids Phaser 3.60 audio-decode hang.
     this.music = null;
     const sfxBase = 'assets/sound-effects/';
-    this.load.audio('music',       'assets/music2.mp3');
-    this.load.audio('snd-jump',    sfxBase + 'Woosh_1.ogg');
-    this.load.audio('snd-land',    sfxBase + 'Thud1.ogg');
-    this.load.audio('snd-stomp',   sfxBase + 'Crunch_1.ogg');
-    this.load.audio('snd-hurt',    sfxBase + 'Thudd1.mp3');
-    this.load.audio('snd-shoe',    sfxBase + 'Woosh_2.ogg');
-    this.load.audio('snd-blocked', sfxBase + 'Parry1.ogg');
-    this.load.audio('snd-collect', sfxBase + 'Clickandrelease_1.ogg');
-    this.load.audio('snd-win',     sfxBase + 'sucess1.mp3');
-    this.load.audio('snd-gameover',sfxBase + 'RegularShowShort.ogg');
+    this.load.audio('music',         'assets/music2.mp3');
+    this.load.audio('snd-jump',      sfxBase + 'Woosh_1.ogg');
+    this.load.audio('snd-land',      sfxBase + 'Thud1.ogg');
+    this.load.audio('snd-stomp',     sfxBase + 'Crunch_1.ogg');
+    this.load.audio('snd-hurt',      sfxBase + 'Thudd1.mp3');
+    this.load.audio('snd-shoe',      sfxBase + 'Woosh_2.ogg');
+    this.load.audio('snd-blocked',   sfxBase + 'Parry1.ogg');
+    this.load.audio('snd-collect',   sfxBase + 'Clickandrelease_1.ogg');
+    this.load.audio('snd-win',       sfxBase + 'sucess1.mp3');
+    this.load.audio('snd-gameover',  sfxBase + 'RegularShowShort.ogg');
+    this.load.audio('snd-box-hit',   sfxBase + 'Clang1.ogg');
+    this.load.audio('snd-box-break', sfxBase + 'Snap_1.ogg');
+    this.load.on('loaderror', (file) => {
+      console.warn('[SFX] Failed to load audio:', file.key, '→', file.src);
+    });
     this.load.once('complete', () => {
       try {
         this.music = this.sound.add('music', { loop: true, volume: 0.35 });
         this.music.play();
       } catch(e) { console.warn('Music failed to start:', e); }
-      const vol = (k, v) => { try { this[k] = this.sound.add(k, { volume: v }); } catch(e) {} };
-      vol('snd-jump',     0.30);
-      vol('snd-land',     0.25);
-      vol('snd-stomp',    0.50);
-      vol('snd-hurt',     0.55);
-      vol('snd-shoe',     0.28);
-      vol('snd-blocked',  0.50);
-      vol('snd-collect',  0.40);
-      vol('snd-win',      0.55);
-      vol('snd-gameover', 0.55);
+      const vol = (k, v) => {
+        try {
+          this[k] = this.sound.add(k, { volume: v });
+        } catch(e) {
+          console.warn('[SFX] sound.add failed for key:', k, e);
+        }
+      };
+      vol('snd-jump',      0.30);
+      vol('snd-land',      0.25);
+      vol('snd-stomp',     0.50);
+      vol('snd-hurt',      0.55);
+      vol('snd-shoe',      0.28);
+      vol('snd-blocked',   0.50);
+      vol('snd-collect',   0.40);
+      vol('snd-win',       0.55);
+      vol('snd-gameover',  0.55);
+      vol('snd-box-hit',   0.45);
+      vol('snd-box-break', 0.50);
     });
     this.load.start();
     this.events.once('shutdown', () => { this.music?.stop(); });
@@ -408,6 +437,7 @@ class GameScene extends Phaser.Scene {
     this.aKey     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
     this.dKey     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
     this.wKey     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
+    this.qKey     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
 
     this.scene.launch('HUD', { gameScene: this });
   }
@@ -532,6 +562,16 @@ class GameScene extends Phaser.Scene {
     this.handleEnemies();
     this.checkProjectiles();
 
+    // Update shield ring position
+    if (this.shieldRing) {
+      this.shieldRing.setPosition(this.player.x, this.player.y - 4)
+        .setVisible(this.hasShield);
+      if (this.hasShield && !this.shieldRing.anims.isPlaying) {
+        this.shieldRing.play('shield-ring');
+      }
+    }
+    this.checkPlayerApples();
+
     if (this.player.y > GAME_H + 100) {
       this.takeDamage();
       this.player.setPosition(this.respawnX, this.respawnY);
@@ -556,11 +596,11 @@ class GameScene extends Phaser.Scene {
                   Phaser.Input.Keyboard.JustDown(this.wKey);
 
     if (left) {
-      this.player.setVelocityX(-190);
+      this.player.setVelocityX(this.hasSpeed ? -310 : -190);
       this.player.setFlipX(true);
       if (onGround && !this.isHurt) this.setPlayerAnim('p-walk');
     } else if (right) {
-      this.player.setVelocityX(190);
+      this.player.setVelocityX(this.hasSpeed ? 310 : 190);
       this.player.setFlipX(false);
       if (onGround && !this.isHurt) this.setPlayerAnim('p-walk');
     } else {
@@ -582,6 +622,68 @@ class GameScene extends Phaser.Scene {
       this.jumpCount++;
       this['snd-jump']?.play();
       this.spawnParticles(this.player.x, this.player.y + 30, 0xffffff, 4);
+    }
+
+    // Apple throw
+    if (Phaser.Input.Keyboard.JustDown(this.qKey) && this.hasApple && this.appleCount > 0) {
+      this.throwPlayerApple();
+    }
+  }
+
+  throwPlayerApple() {
+    this.appleCount--;
+    this.events.emit('appleCount', this.appleCount);
+    if (this.appleCount <= 0) {
+      this.hasApple = false;
+      this.events.emit('appleOff');
+    }
+    const dirX = this.player.flipX ? -1 : 1;
+    const sx = this.player.x + dirX * 30;
+    const sy = this.player.y - 10;
+    const apple = this.fruitPool.get(sx, sy, 'fruit-apple');
+    if (!apple) return;
+    apple.setActive(true).setVisible(true).setScale(1.5).setDepth(12);
+    apple.play('fruit-apple');
+    apple.body.reset(sx, sy);
+    apple.body.setAllowGravity(false);
+    apple.body.setGravityY(0);
+    apple.body.setVelocity(dirX * 380, 0);
+    apple.body.setSize(24, 24);
+    apple.dirX  = dirX;
+    apple.isActive = true;
+    apple.isPlayerApple = true;
+    this.playerApples.push(apple);
+    this['snd-shoe']?.play();
+    this.time.delayedCall(2500, () => this.destroyProjectile(apple));
+  }
+
+  checkPlayerApples() {
+    if (!this.playerApples.length) return;
+    for (let i = this.playerApples.length - 1; i >= 0; i--) {
+      const ap = this.playerApples[i];
+      if (!ap?.active || !ap.isActive) { this.playerApples.splice(i, 1); continue; }
+      if (ap.body?.blocked.down || ap.body?.blocked.left || ap.body?.blocked.right) {
+        this.destroyProjectile(ap); this.playerApples.splice(i, 1); continue;
+      }
+      let hit = false;
+      this.enemies.getChildren().forEach(e => {
+        if (!e.active || !ap.isActive || hit) return;
+        const ab = ap.body, eb = e.body;
+        if (Phaser.Geom.Intersects.RectangleToRectangle(
+            new Phaser.Geom.Rectangle(ab.x, ab.y, ab.width, ab.height),
+            new Phaser.Geom.Rectangle(eb.x, eb.y, eb.width, eb.height))) {
+          hit = true;
+          ap.isActive = false;
+          this.destroyProjectile(ap);
+          this.playerApples.splice(i, 1);
+          this.score += 150;
+          this.showFloat(e.x, e.y - 20, '+150 TREFFER!', '#ff6600');
+          this.spawnParticles(e.x, e.y, 0xff6600, 8);
+          this['snd-stomp']?.play();
+          this.respawnEnemy(e);
+          e.destroy();
+        }
+      });
     }
   }
 
@@ -791,17 +893,17 @@ class GameScene extends Phaser.Scene {
     // All power-ups come exclusively from boxes (no free-floating collectibles).
     const boxDefs = [
       [340,  H-209, 1, 'heart'  ],  // platform H-110 (top H-120)
-      [600,  H-284, 2, 'boots'  ],  // platform H-185 (top H-195)
-      [860,  H-229, 2, 'star'   ],  // platform H-130 (top H-140)
+      [600,  H-284, 2, 'speed'  ],  // platform H-185 (top H-195)
+      [860,  H-229, 2, 'apple'  ],  // platform H-130 (top H-140)
       [1150, H-309, 3, 'shield' ],  // platform H-210 (top H-220)
-      [1400, H-254, 1, 'star'   ],  // platform H-155 (top H-165)
-      [1910, H-274, 1, 'boots'  ],  // platform H-175 (top H-185)
+      [1400, H-254, 1, 'apple'  ],  // platform H-155 (top H-165)
+      [1910, H-274, 1, 'speed'  ],  // platform H-175 (top H-185)
       [2210, H-394, 2, 'heart'  ],  // platform H-295 (top H-305)
       [2470, H-307, 2, 'shield' ],  // platform H-208 (top H-218)
-      [2970, H-347, 3, 'star'   ],  // platform H-248 (top H-258)
+      [2970, H-347, 3, 'apple'  ],  // platform H-248 (top H-258)
       [3260, H-291, 1, 'shield' ],  // platform H-192 (top H-202)
-      [3760, H-302, 3, 'boots'  ],  // platform H-203 (top H-213)
-      [4290, H-342, 1, 'star'   ],  // platform H-243 (top H-253)
+      [3760, H-302, 3, 'speed'  ],  // platform H-203 (top H-213)
+      [4290, H-342, 1, 'apple'  ],  // platform H-243 (top H-253)
       [4790, H-397, 3, 'heart'  ],  // platform H-298 (top H-308)
     ];
     boxDefs.forEach(([x, y, type, reward]) => {
@@ -855,10 +957,12 @@ class GameScene extends Phaser.Scene {
     // Hit flash
     box.setTexture(`${box.boxKey}-hit`);
     this.cameras.main.shake(60, 0.005);
+    this['snd-box-hit']?.play();
 
     this.time.delayedCall(100, () => {
       if (!box.active) return;
       box.setTexture(`${box.boxKey}-break`);
+      this['snd-box-break']?.play();
 
       this.time.delayedCall(180, () => {
         if (!box.active) return;
@@ -896,15 +1000,15 @@ class GameScene extends Phaser.Scene {
         this.events.emit('shieldOn');
         this.showFloat(x, y - 30, 'SCHILD!', '#ffd700');
         break;
-      case 'star':
-        this.isStarPow = true;
-        this.player.setTint(0xffff55);
-        this.events.emit('starOn', 5000);
-        this.showFloat(x, y - 30, 'UNVERWUNDBAR!', '#ffff44');
-        this.time.delayedCall(5000, () => {
-          this.isStarPow = false;
+      case 'speed':
+        this.hasSpeed = true;
+        this.player.setTint(0x00ffff);
+        this.events.emit('speedOn', 8000);
+        this.showFloat(x, y - 30, 'TURBO!', '#00ffff');
+        this.time.delayedCall(8000, () => {
+          this.hasSpeed = false;
           this.player?.clearTint();
-          this.events.emit('starOff');
+          this.events.emit('speedOff');
         });
         break;
       case 'heart':
@@ -912,14 +1016,11 @@ class GameScene extends Phaser.Scene {
         this.events.emit('livesChanged', this.lives);
         this.showFloat(x, y - 30, '+1 LEBEN!', '#ff3366');
         break;
-      case 'boots':
-        this.hasSuperBoot = true;
-        this.events.emit('bootsOn', 10000);
-        this.showFloat(x, y - 30, 'SUPER-SPRUNG!', '#00ccff');
-        this.time.delayedCall(10000, () => {
-          this.hasSuperBoot = false;
-          this.events.emit('bootsOff');
-        });
+      case 'apple':
+        this.hasApple = true;
+        this.appleCount = 3;
+        this.events.emit('appleOn', 3);
+        this.showFloat(x, y - 30, '3 ÄPFEL! [Q]', '#ff6600');
         break;
     }
   }
@@ -1043,28 +1144,30 @@ class HUDScene extends Phaser.Scene {
     const W = GAME_W;
     this.add.rectangle(W / 2, 22, W, 44, 0x000000, 0.52);
 
-    this.livesDisplay = this.add.text(14, 9,  'HHH', {
-      fontSize: '22px', fill: '#ff3366'
-    }).setText(this.buildLives(3));
+    // Health bar image (05.png, 8 frames from full to empty, each 48×32)
+    this.livesBar = this.add.image(14, 22, 'health-bar', this.livesToFrame(3))
+      .setOrigin(0, 0.5).setScale(1.8);
 
-    this.shieldIcon = this.add.text(14, 33, '[SCHILD]', {
-      fontSize: '9px', fill: '#ffd700', fontFamily: '"Press Start 2P"'
+    this.shieldIcon = this.add.text(14, 38, '[SCHILD]', {
+      fontSize: '8px', fill: '#ffd700', fontFamily: '"Press Start 2P"'
     }).setVisible(false);
 
-    this.starBar  = this.createBar(120, 36, 0xffff00);
-    this.bootBar  = this.createBar(120, 36, 0x00ccff);
+    // Power-up bars (bonus-bars spritesheet)
+    this.speedBar  = this.createBar(115, 36, 0x00ffff, 'TURBO');
+    this.appleBar  = this.createAppleBar(115, 36);
 
     this.scoreTxt = this.add.text(W - 14, 9, 'PUNKTE: 0', {
       fontSize: '10px', fill: '#ffffff', fontFamily: '"Press Start 2P"'
     }).setOrigin(1, 0);
 
-    this.gs.events.on('livesChanged', n  => this.livesDisplay.setText(this.buildLives(n)));
+    this.gs.events.on('livesChanged', n  => this.livesBar.setFrame(this.livesToFrame(n)));
     this.gs.events.on('shieldOn',     () => this.shieldIcon.setVisible(true));
     this.gs.events.on('shieldOff',    () => this.shieldIcon.setVisible(false));
-    this.gs.events.on('starOn',  ms => this.startBar(this.starBar, ms, 'STERN'));
-    this.gs.events.on('starOff', ()  => this.starBar.setVisible(false));
-    this.gs.events.on('bootsOn', ms => this.startBar(this.bootBar, ms, 'BOOT'));
-    this.gs.events.on('bootsOff',()  => this.bootBar.setVisible(false));
+    this.gs.events.on('speedOn',  ms => this.startBar(this.speedBar, ms, 'TURBO'));
+    this.gs.events.on('speedOff', ()  => this.speedBar.setVisible(false));
+    this.gs.events.on('appleOn',  n   => this.updateAppleBar(n));
+    this.gs.events.on('appleCount', n => this.updateAppleBar(n));
+    this.gs.events.on('appleOff',  ()  => this.appleBar.setVisible(false));
 
     this.time.addEvent({
       delay: 120, loop: true,
@@ -1072,13 +1175,43 @@ class HUDScene extends Phaser.Scene {
     });
 
     this.events.on('shutdown', () => {
-      ['livesChanged','shieldOn','shieldOff','starOn','starOff','bootsOn','bootsOff']
+      ['livesChanged','shieldOn','shieldOff','speedOn','speedOff','appleOn','appleCount','appleOff']
         .forEach(ev => this.gs.events.off(ev));
     });
   }
 
-  buildLives(n) {
-    return '♥ '.repeat(Math.max(0, n)).trim();
+  livesToFrame(n) {
+    // 8 frames: 0=full(green) … 7=empty(black). Map 5 lives→0, 4→1, 3→2, 2→4, 1→6, 0→7
+    return Math.min(7, Math.max(0, Math.round((5 - Math.min(n, 5)) * 1.4)));
+  }
+
+  createAppleBar(x, y) {
+    const g = this.add.graphics().setVisible(false).setDepth(5);
+    g.bx = x; g.by = y;
+    return g;
+  }
+
+  updateAppleBar(count) {
+    const g = this.appleBar;
+    g.clear();
+    g.setVisible(count > 0);
+    if (count <= 0) return;
+    // Draw up to 3 apple-pip circles
+    g.fillStyle(0xff6600, 0.9);
+    g.fillRoundedRect(g.bx, g.by, 75, 12, 4);
+    g.fillStyle(0xff0000);
+    for (let i = 0; i < 3; i++) {
+      if (i < count) g.fillCircle(g.bx + 10 + i * 26, g.by + 6, 7);
+      else { g.fillStyle(0x444444); g.fillCircle(g.bx + 10 + i * 26, g.by + 6, 7); g.fillStyle(0xff0000); }
+    }
+    this.add.text && void 0; // no-op
+    // Label
+    if (!g.lbl) {
+      g.lbl = this.add.text(g.bx + 75 + 4, g.by, 'APFEL [Q]', {
+        fontSize: '7px', fill: '#ff6600', fontFamily: '"Press Start 2P"'
+      }).setDepth(6);
+    }
+    g.lbl.setVisible(count > 0);
   }
 
   createBar(x, y, color) {
