@@ -7,41 +7,45 @@ class HUDScene extends Phaser.Scene {
 
   create() {
     const W = GAME_W;
-    const CX = W / 2;   // center X for power-up indicators
+    const CX = W / 2;
 
-    // ── TOP BAR (lives + score) ─────────────────────────────────
-    this.add.rectangle(W / 2, 22, W, 44, 0x000000, 0.52);
+    // ── TOP BAR (lives + level + score) ─────────────────────────
+    // Taller bar pushed down so nothing clips at the top edge
+    this.add.rectangle(W / 2, 26, W, 52, 0x000000, 0.55);
 
-    this.livesBar = this.add.image(14, 22, 'health-bar', this.livesToFrame(this.gs.lives))
+    this.livesBar = this.add.image(14, 28, 'health-bar', this.livesToFrame(this.gs.lives))
       .setOrigin(0, 0.5).setScale(1.8);
 
-    // Level indicator
-    this.add.text(W / 2, 6, 'LEVEL ' + this.level, {
+    // Level indicator — centered, with padding from top
+    this.add.text(W / 2, 12, 'LEVEL ' + this.level, {
       fontSize: '22px', fill: '#ffd700', fontFamily: '"Bangers", cursive', letterSpacing: 2,
       stroke: '#000', strokeThickness: 4
     }).setOrigin(0.5, 0);
 
-    this.scoreTxt = this.add.text(W - 14, 9, 'PUNKTE: 0', {
-      fontSize: '16px', fill: '#ffffff', fontFamily: '"Bangers", cursive', letterSpacing: 1
+    // Score — bigger, right-aligned with breathing room
+    this.scoreTxt = this.add.text(W - 16, 12, 'PUNKTE: 0', {
+      fontSize: '20px', fill: '#ffffff', fontFamily: '"Bangers", cursive', letterSpacing: 1,
+      stroke: '#000', strokeThickness: 3
     }).setOrigin(1, 0);
 
-    // ── CENTER POWER-UP INDICATORS (stacked, no overlap) ────────
-    // Each indicator is positioned relative to center-top of screen
-    // They stack: shield at y=54, turbo at y=80, apple at y=106
+    // Track score for milestone animations
+    this._lastAnimatedScore = 0;
 
-    // Shield indicator — white on dark pill for readability
+    // ── CENTER POWER-UP INDICATORS (stacked, no overlap) ────────
+
+    // Shield indicator
     this.shieldBg = this.add.graphics().setVisible(false).setDepth(10);
     this.shieldBg.fillStyle(0x000000, 0.6);
     this.shieldBg.fillRoundedRect(-70, -14, 140, 28, 8);
     this.shieldBg.lineStyle(1.5, 0xffd700, 0.7);
     this.shieldBg.strokeRoundedRect(-70, -14, 140, 28, 8);
-    this.shieldIcon = this.add.text(CX, 58, 'SCHILD x3', {
+    this.shieldIcon = this.add.text(CX, 66, 'SCHILD x3', {
       fontSize: '15px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
       stroke: '#000000', strokeThickness: 4
     }).setOrigin(0.5).setVisible(false).setDepth(11);
 
-    // Turbo bar — centered, wider
-    this.turboContainer = this.add.container(CX, 80).setVisible(false).setDepth(10);
+    // Turbo bar
+    this.turboContainer = this.add.container(CX, 88).setVisible(false).setDepth(10);
     this.turboGfx = this.add.graphics();
     this.turboContainer.add(this.turboGfx);
     this.turboLbl = this.add.text(0, -14, 'TURBO', {
@@ -50,8 +54,8 @@ class HUDScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this.turboContainer.add(this.turboLbl);
 
-    // Apple UI — centered
-    this.appleContainer = this.add.container(CX, 80).setVisible(false).setDepth(10);
+    // Apple UI
+    this.appleContainer = this.add.container(CX, 88).setVisible(false).setDepth(10);
     const appleBg = this.add.graphics();
     appleBg.fillStyle(0x000000, 0.65);
     appleBg.fillRoundedRect(-80, -14, 160, 30, 8);
@@ -81,9 +85,21 @@ class HUDScene extends Phaser.Scene {
     this.gs.events.on('appleCount', n => this.updateAppleUI(n));
     this.gs.events.on('appleOff',  ()  => { this.appleContainer.setVisible(false); this.layoutPowerups(); });
 
+    // Score update loop with milestone animation
     this.time.addEvent({
       delay: 120, loop: true,
-      callback: () => { if (this.gs) this.scoreTxt.setText('PUNKTE: ' + this.gs.score); }
+      callback: () => {
+        if (!this.gs) return;
+        const score = this.gs.score;
+        this.scoreTxt.setText('PUNKTE: ' + score);
+        // Animate every 500 points
+        const milestone = Math.floor(score / 500);
+        const lastMilestone = Math.floor(this._lastAnimatedScore / 500);
+        if (milestone > lastMilestone && score > 0) {
+          this.animateScore();
+        }
+        this._lastAnimatedScore = score;
+      }
     });
 
     this.events.on('shutdown', () => {
@@ -92,10 +108,20 @@ class HUDScene extends Phaser.Scene {
     });
   }
 
-  // Dynamically stack visible power-up indicators below the top bar
+  animateScore() {
+    // Pop + gold flash
+    this.tweens.add({
+      targets: this.scoreTxt,
+      scaleX: 1.4, scaleY: 1.4,
+      duration: 150, yoyo: true,
+      onStart: () => this.scoreTxt.setStyle({ fill: '#ffd700' }),
+      onComplete: () => this.scoreTxt.setStyle({ fill: '#ffffff' })
+    });
+  }
+
   layoutPowerups() {
     const CX = GAME_W / 2;
-    let y = 58;
+    let y = 66;
     if (this.shieldIcon.visible) {
       this.shieldIcon.setPosition(CX, y);
       this.shieldBg.setPosition(CX, y);
@@ -137,13 +163,10 @@ class HUDScene extends Phaser.Scene {
         const t = Math.max(0, 1 - (this.time.now - started) / duration);
         const g = this.turboGfx;
         g.clear();
-        // Background
         g.fillStyle(0x000000, 0.55);
         g.fillRoundedRect(-barW / 2, -barH / 2, barW, barH, 4);
-        // Fill
         g.fillStyle(0x00ffff, 0.85);
         g.fillRoundedRect(-barW / 2, -barH / 2, barW * t, barH, 4);
-        // Border
         g.lineStyle(1, 0x00ffff, 0.5);
         g.strokeRoundedRect(-barW / 2, -barH / 2, barW, barH, 4);
         if (t <= 0) {
