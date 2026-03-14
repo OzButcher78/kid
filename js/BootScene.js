@@ -68,6 +68,9 @@ class BootScene extends Phaser.Scene {
     this.load.image('end-idle',  encodeURI('assets/Checkpoints/End/End (Idle).png'));
     this.load.spritesheet('end-press', encodeURI('assets/Checkpoints/End/End (Pressed) (64x64).png'), { frameWidth: 64, frameHeight: 64 });
 
+    // Music (loaded here so it's ready by MenuScene; playback starts on first user click)
+    this.load.audio('music', 'assets/music2.mp3');
+
     // UI assets
     this.load.spritesheet('shield-ring', 'assets/03.png', { frameWidth: 48, frameHeight: 36 });
     this.load.spritesheet('health-bar',  'assets/05.png', { frameWidth: 48, frameHeight: 32 });

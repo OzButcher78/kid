@@ -65,10 +65,23 @@ class MenuScene extends Phaser.Scene {
       backgroundColor: '#8b1a1a', padding: { x: 30, y: 16 }, letterSpacing: 3
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     btn.on('pointerdown', () => {
+      this.startMusic();
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.time.delayedCall(400, () => this.scene.start('Story'));
     });
     this.tweens.add({ targets: btn, scaleX: 1.03, scaleY: 1.03, duration: 600, yoyo: true, repeat: -1 });
+  }
+
+  startMusic() {
+    // Start global background music (persists across scenes)
+    if (!window._gameMusic) {
+      try {
+        window._gameMusic = this.sound.add('music', { loop: true, volume: 0.15 });
+        window._gameMusic.play();
+      } catch(e) { console.warn('Music failed:', e); }
+    } else if (!window._gameMusic.isPlaying) {
+      window._gameMusic.play();
+    }
   }
 
   createDesktopMenu(W, H) {
@@ -108,6 +121,7 @@ class MenuScene extends Phaser.Scene {
     btn.on('pointerover', () => btn.setStyle({ fill: '#ffd700' }));
     btn.on('pointerout',  () => btn.setStyle({ fill: '#ffffff' }));
     btn.on('pointerdown', () => {
+      this.startMusic();
       this.cameras.main.fadeOut(400, 0, 0, 0);
       this.time.delayedCall(400, () => this.scene.start('Story'));
     });

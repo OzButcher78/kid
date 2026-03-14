@@ -109,9 +109,7 @@ class GameScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true, 0.1, 0.12);
 
     // ── BACKGROUND MUSIC & SOUND EFFECTS ─────────────────────────
-    this.music = null;
     const sfxBase = 'assets/sound-effects/';
-    this.load.audio('music',         'assets/music2.mp3');
     this.load.audio('snd-jump',      sfxBase + 'Woosh_1.ogg');
     this.load.audio('snd-land',      sfxBase + 'Thud1.ogg');
     this.load.audio('snd-stomp',     sfxBase + 'Crunch_1.ogg');
@@ -128,11 +126,11 @@ class GameScene extends Phaser.Scene {
       console.warn('[SFX] Failed to load audio:', file.key, '→', file.src);
     });
     this.load.once('complete', () => {
-      try {
-        // BUG-003: music volume halved from 0.35 → 0.15
-        this.music = this.sound.add('music', { loop: true, volume: 0.15 });
-        this.music.play();
-      } catch(e) { console.warn('Music failed to start:', e); }
+      // Music is managed globally from MenuScene (window._gameMusic)
+      // Resume if it was stopped (e.g. game over → retry)
+      if (window._gameMusic && !window._gameMusic.isPlaying) {
+        try { window._gameMusic.play(); } catch(e) {}
+      }
       const vol = (k, v) => {
         try { this[k] = this.sound.add(k, { volume: v }); }
         catch(e) { console.warn('[SFX] sound.add failed for key:', k, e); }
@@ -152,7 +150,7 @@ class GameScene extends Phaser.Scene {
       vol('snd-box-break', 0.70);
     });
     this.load.start();
-    this.events.once('shutdown', () => { this.music?.stop(); });
+    this.events.once('shutdown', () => {});
 
     // ── INPUT ─────────────────────────────────────────────────────
     this.cursors  = this.input.keyboard.createCursorKeys();
@@ -858,7 +856,7 @@ class GameScene extends Phaser.Scene {
     this.time.delayedCall(1500, () => {
       this.scene.stop('HUD');
       this.scene.stop('TouchControls');
-      this.music?.stop();
+      window._gameMusic?.stop();
       // Advance to next level, carrying over score and lives
       this.scene.start('Game', {
         level: this.level + 1,
@@ -926,7 +924,7 @@ class GameScene extends Phaser.Scene {
 
     if (this.lives <= 0) {
       this.gameOver = true;
-      this.music?.stop();
+      window._gameMusic?.stop();
       this['snd-gameover']?.play();
       this.time.delayedCall(800, () => {
         this.scene.stop('HUD');
