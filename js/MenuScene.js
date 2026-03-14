@@ -30,6 +30,10 @@ class MenuScene extends Phaser.Scene {
     this.add.text(W / 2, 108, 'Entkommt die Müttern!', {
       fontSize: '16px', fill: '#ffcccc', fontFamily: '"Nunito", sans-serif', fontWeight: '700'
     }).setOrigin(0.5);
+    this.add.text(W / 2, 138, 'von Noah B.', {
+      fontSize: '20px', fill: '#ffffff', fontFamily: '"Bangers", cursive',
+      stroke: '#000000', strokeThickness: 3, letterSpacing: 1
+    }).setOrigin(0.5);
 
     this.add.rectangle(W / 2, 215, 500, 95, 0x000000, 0.5);
     ['Pfeiltasten / WASD   Bewegen', 'LEERTASTE / ↑   Springen', 'Zweimal springen möglich!']

@@ -25,8 +25,8 @@ class BootScene extends Phaser.Scene {
       }
     });
 
-    // Player individual frames (64×64 each)
-    const pBase = 'assets/char1/Character1M_1_';
+    // Player individual frames (64×64 each) — white t-shirt character
+    const pBase = 'assets/char2/Character2M_3_';
     ['idle','walk','run'].forEach(anim => {
       for (let i = 0; i < 8; i++)
         this.load.image(`p-${anim}-${i}`, `${pBase}${anim}_${i}.png`);
