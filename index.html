@@ -99,8 +99,17 @@ class BootScene extends Phaser.Scene {
       fontSize: '12px', fill: '#aaffaa', fontFamily: '"Press Start 2P"'
     }).setOrigin(0.5);
     this.load.on('progress', v => { bar.width = 400 * v; });
+    // Log and display load/process errors on-screen (up to 5 visible)
+    const failedFiles = [];
     this.load.on('loaderror', (file) => {
-      console.error('Load error:', file.key, file.src);
+      console.error('Load error:', file.type, file.key, '→', file.src);
+      failedFiles.push(file.key);
+      if (failedFiles.length <= 5) {
+        this.add.text(GAME_W / 2, GAME_H / 2 + 30 + failedFiles.length * 14,
+          `FAIL: ${file.key} — ${file.src?.split('/').slice(-2).join('/')}`,
+          { fontSize: '7px', fill: '#ff4444', fontFamily: 'monospace' }
+        ).setOrigin(0.5);
+      }
     });
 
     // Player individual frames (64×64 each)
@@ -174,13 +183,15 @@ class BootScene extends Phaser.Scene {
       this.anims.create({ key: 'e-hurt',  frames: imgFrames('e-hurt',  2), frameRate: 10, repeat: 0  });
 
       // Fruit animations (17 frames each at 15fps, looping)
+      // Guard: generateFrameNumbers returns undefined if the spritesheet failed to load.
+      // Skip creating the animation rather than crashing on .duration access.
       ['apple','bananas','cherries','kiwi','melon','orange','pineapple','strawberry'].forEach(name => {
-        this.anims.create({
-          key: `fruit-${name}`,
-          frames: this.anims.generateFrameNumbers(`fruit-${name}`, { start: 0, end: 16 }),
-          frameRate: 15,
-          repeat: -1
-        });
+        const frames = this.anims.generateFrameNumbers(`fruit-${name}`, { start: 0, end: 16 });
+        if (!frames || frames.length === 0) {
+          console.warn(`Skipping animation fruit-${name}: spritesheet not loaded`);
+          return;
+        }
+        this.anims.create({ key: `fruit-${name}`, frames, frameRate: 15, repeat: -1 });
       });
 
       this.scene.start('Menu');
