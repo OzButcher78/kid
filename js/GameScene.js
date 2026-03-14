@@ -328,7 +328,6 @@ class GameScene extends Phaser.Scene {
     const left  = this.cursors.left.isDown  || this.aKey.isDown;
     const right = this.cursors.right.isDown || this.dKey.isDown;
     const jump  = Phaser.Input.Keyboard.JustDown(this.cursors.up)  ||
-                  Phaser.Input.Keyboard.JustDown(this.spaceKey)    ||
                   Phaser.Input.Keyboard.JustDown(this.wKey);
 
     if (left) {
@@ -358,7 +357,7 @@ class GameScene extends Phaser.Scene {
       this.spawnParticles(this.player.x, this.player.y + 30, 0xffffff, 4);
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.qKey) && this.hasApple && this.appleCount > 0) {
+    if ((Phaser.Input.Keyboard.JustDown(this.spaceKey) || Phaser.Input.Keyboard.JustDown(this.qKey)) && this.hasApple && this.appleCount > 0) {
       this.throwPlayerApple();
     }
   }
@@ -749,7 +748,7 @@ class GameScene extends Phaser.Scene {
         this.hasApple = true;
         this.appleCount = 3;
         this.events.emit('appleOn', 3);
-        this.showFloat(x, y - 30, '3 ÄPFEL! [Q]', '#ff6600');
+        this.showFloat(x, y - 30, '3 ÄPFEL! [SPACE]', '#ff6600');
         break;
     }
   }

@@ -36,7 +36,7 @@ class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.add.rectangle(W / 2, 215, 500, 95, 0x000000, 0.5);
-    ['Pfeiltasten / WASD   Bewegen', 'LEERTASTE / ↑   Springen', 'Zweimal springen möglich!']
+    ['Pfeiltasten / WASD   Bewegen', '↑ / W   Springen (2x möglich)', 'LEERTASTE   Äpfel werfen']
       .forEach((c, i) => this.add.text(W / 2, 186 + i * 27, c, {
         fontSize: '13px', fill: '#aaddff', fontFamily: '"Nunito", sans-serif', fontWeight: '700'
       }).setOrigin(0.5));
@@ -46,7 +46,7 @@ class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
     [['Schild (gold)', 'Blockt 3 Treffer'],
      ['Turbo (cyan)', '8 Sek. schneller laufen'],
-     ['Apfel (orange)', '3 Äpfel werfen — Taste Q'],
+     ['Apfel (orange)', '3 Äpfel werfen — LEERTASTE'],
      ['Herz (rot)', '+1 Leben']]
       .forEach(([item, desc], i) => this.add.text(W / 2, 324 + i * 24, `• ${item}: ${desc}`, {
         fontSize: '12px', fill: '#cccccc', fontFamily: '"Nunito", sans-serif', fontWeight: '700'

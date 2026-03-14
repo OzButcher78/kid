@@ -52,9 +52,9 @@ class HUDScene extends Phaser.Scene {
     appleBg.lineStyle(1.5, 0xff6600, 0.8);
     appleBg.strokeRoundedRect(-68, -14, 136, 30, 8);
     this.appleContainer.add(appleBg);
-    const qBadge = this.add.text(-56, -10, 'Q', {
-      fontSize: '14px', fill: '#ffffff', fontFamily: '"Bangers", cursive',
-      backgroundColor: '#cc5500', padding: { x: 5, y: 2 }
+    const qBadge = this.add.text(-56, -10, 'SPACE', {
+      fontSize: '11px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
+      backgroundColor: '#cc5500', padding: { x: 4, y: 2 }
     });
     this.appleContainer.add(qBadge);
     this.appleIcons = [];
