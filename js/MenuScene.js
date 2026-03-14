@@ -36,8 +36,10 @@ class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.add.rectangle(W / 2, 215, 500, 95, 0x000000, 0.5);
-    ['Pfeiltasten / WASD   Bewegen', '↑ / W   Springen (2x möglich)', 'LEERTASTE   Äpfel werfen']
-      .forEach((c, i) => this.add.text(W / 2, 186 + i * 27, c, {
+    const controls = IS_TOUCH
+      ? ['◀ ▶ Tasten   Bewegen', '⬆ Taste   Springen (2x möglich)', '● Taste   Äpfel werfen']
+      : ['Pfeiltasten / WASD   Bewegen', '↑ / W   Springen (2x möglich)', 'LEERTASTE   Äpfel werfen'];
+    controls.forEach((c, i) => this.add.text(W / 2, 186 + i * 27, c, {
         fontSize: '13px', fill: '#aaddff', fontFamily: '"Nunito", sans-serif', fontWeight: '700'
       }).setOrigin(0.5));
 

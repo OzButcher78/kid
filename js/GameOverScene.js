@@ -40,32 +40,51 @@ class GameOverScene extends Phaser.Scene {
       fontSize: '14px', fill: '#aaddff', fontFamily: '"Nunito", sans-serif', fontWeight: '700'
     }).setOrigin(0.5);
 
-    // Build a simple on-screen name input (max 10 chars)
-    this.playerName = '';
-    this.nameText = this.add.text(W / 2, 175, '|', {
-      fontSize: '24px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
-      backgroundColor: '#222244', padding: { x: 60, y: 6 }
-    }).setOrigin(0.5);
-
-    // Blinking cursor
-    this.tweens.add({ targets: this.nameText, alpha: 0.7, duration: 500, yoyo: true, repeat: -1 });
-
-    // Keyboard input for name
-    this.input.keyboard.on('keydown', (event) => {
-      if (this.nameSubmitted) return;
-      if (event.key === 'Backspace') {
-        this.playerName = this.playerName.slice(0, -1);
-      } else if (event.key === 'Enter' && this.playerName.length > 0) {
-        this.submitScore();
-        return;
-      } else if (event.key.length === 1 && this.playerName.length < 10) {
-        this.playerName += event.key;
-      }
-      this.nameText.setText(this.playerName.length > 0 ? this.playerName : '|');
-    });
+    if (IS_TOUCH) {
+      // Mobile: real DOM input so virtual keyboard activates
+      this.nameText = this.add.text(W / 2, 175, '', { fontSize: '1px' }).setOrigin(0.5).setAlpha(0);
+      this.domInput = document.createElement('input');
+      this.domInput.type = 'text';
+      this.domInput.maxLength = 10;
+      this.domInput.placeholder = 'Dein Name...';
+      this.domInput.autocomplete = 'off';
+      this.domInput.style.cssText =
+        'position:absolute;z-index:1000;font-size:18px;font-family:"Nunito",sans-serif;' +
+        'text-align:center;width:200px;padding:8px;border:2px solid #ffd700;' +
+        'background:#222244;color:#fff;border-radius:8px;outline:none;';
+      document.body.appendChild(this.domInput);
+      this.positionDomInput();
+      this._resizeHandler = () => this.positionDomInput();
+      window.addEventListener('resize', this._resizeHandler);
+      // Cleanup on scene shutdown
+      this.events.on('shutdown', () => {
+        if (this.domInput) { this.domInput.remove(); this.domInput = null; }
+        window.removeEventListener('resize', this._resizeHandler);
+      });
+    } else {
+      // Desktop: Phaser text-based input
+      this.nameText = this.add.text(W / 2, 175, '|', {
+        fontSize: '24px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
+        backgroundColor: '#222244', padding: { x: 60, y: 6 }
+      }).setOrigin(0.5);
+      this.tweens.add({ targets: this.nameText, alpha: 0.7, duration: 500, yoyo: true, repeat: -1 });
+      this.input.keyboard.on('keydown', (event) => {
+        if (this.nameSubmitted) return;
+        if (event.key === 'Backspace') {
+          this.playerName = this.playerName.slice(0, -1);
+        } else if (event.key === 'Enter' && this.playerName.length > 0) {
+          this.submitScore();
+          return;
+        } else if (event.key.length === 1 && this.playerName.length < 10) {
+          this.playerName += event.key;
+        }
+        this.nameText.setText(this.playerName.length > 0 ? this.playerName : '|');
+      });
+    }
 
     // Submit button
     this.submitBtn = this.makeBtn(W / 2, 215, 'EINTRAGEN', '#2a6e2a', () => {
+      if (IS_TOUCH && this.domInput) this.playerName = this.domInput.value.slice(0, 10);
       if (this.playerName.length > 0) this.submitScore();
     });
 
@@ -85,8 +104,22 @@ class GameOverScene extends Phaser.Scene {
       () => { this.fade(() => this.scene.start('Menu')); });
   }
 
+  positionDomInput() {
+    if (!this.domInput) return;
+    const rect = this.game.canvas.getBoundingClientRect();
+    const scaleX = rect.width / GAME_W;
+    const scaleY = rect.height / GAME_H;
+    this.domInput.style.left = (rect.left + (GAME_W / 2) * scaleX - 100 * scaleX) + 'px';
+    this.domInput.style.top  = (rect.top + 165 * scaleY) + 'px';
+    this.domInput.style.width = (200 * scaleX) + 'px';
+    this.domInput.style.fontSize = (18 * scaleY) + 'px';
+  }
+
   submitScore() {
     if (this.nameSubmitted) return;
+    // Read from DOM input on mobile
+    if (IS_TOUCH && this.domInput) this.playerName = this.domInput.value.slice(0, 10);
+    if (!this.playerName || this.playerName.length === 0) return;
     this.nameSubmitted = true;
 
     // Save to localStorage

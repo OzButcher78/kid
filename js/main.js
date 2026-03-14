@@ -11,6 +11,9 @@ new Phaser.Game({
     mode: Phaser.Scale.FIT,
     autoCenter: Phaser.Scale.CENTER_BOTH,
   },
+  input: {
+    activePointers: 3,   // support 3 simultaneous touch points
+  },
   physics: {
     default: 'arcade',
     arcade: {
@@ -18,5 +21,5 @@ new Phaser.Game({
       debug: false   // true = Hitboxen sichtbar machen
     }
   },
-  scene: [BootScene, MenuScene, GameScene, HUDScene, GameOverScene]
+  scene: [BootScene, MenuScene, GameScene, HUDScene, GameOverScene, TouchControlsScene]
 });

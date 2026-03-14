@@ -163,6 +163,7 @@ class GameScene extends Phaser.Scene {
     this.qKey     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
 
     this.scene.launch('HUD', { gameScene: this, level: this.level });
+    if (IS_TOUCH) this.scene.launch('TouchControls');
 
     // Level start banner
     if (this.level > 1) {
@@ -384,10 +385,11 @@ class GameScene extends Phaser.Scene {
     if (onGround && !this.wasOnGround) this['snd-land']?.play();
     this.wasOnGround = onGround;
 
-    const left  = this.cursors.left.isDown  || this.aKey.isDown;
-    const right = this.cursors.right.isDown || this.dKey.isDown;
+    const left  = this.cursors.left.isDown  || this.aKey.isDown  || TOUCH_INPUT.left;
+    const right = this.cursors.right.isDown || this.dKey.isDown || TOUCH_INPUT.right;
     const jump  = Phaser.Input.Keyboard.JustDown(this.cursors.up)  ||
-                  Phaser.Input.Keyboard.JustDown(this.wKey);
+                  Phaser.Input.Keyboard.JustDown(this.wKey) || TOUCH_INPUT.jump;
+    TOUCH_INPUT.jump = false;  // consume one-shot
 
     if (left) {
       this.player.setVelocityX(this.hasSpeed ? -310 : -190);
@@ -416,7 +418,9 @@ class GameScene extends Phaser.Scene {
       this.spawnParticles(this.player.x, this.player.y + 30, 0xffffff, 4);
     }
 
-    if ((Phaser.Input.Keyboard.JustDown(this.spaceKey) || Phaser.Input.Keyboard.JustDown(this.qKey)) && this.hasApple && this.appleCount > 0) {
+    const shootPressed = Phaser.Input.Keyboard.JustDown(this.spaceKey) || Phaser.Input.Keyboard.JustDown(this.qKey) || TOUCH_INPUT.shoot;
+    TOUCH_INPUT.shoot = false;  // consume one-shot
+    if (shootPressed && this.hasApple && this.appleCount > 0) {
       this.throwPlayerApple();
     }
   }
@@ -853,6 +857,7 @@ class GameScene extends Phaser.Scene {
 
     this.time.delayedCall(1500, () => {
       this.scene.stop('HUD');
+      this.scene.stop('TouchControls');
       this.music?.stop();
       // Advance to next level, carrying over score and lives
       this.scene.start('Game', {
@@ -925,6 +930,7 @@ class GameScene extends Phaser.Scene {
       this['snd-gameover']?.play();
       this.time.delayedCall(800, () => {
         this.scene.stop('HUD');
+      this.scene.stop('TouchControls');
         this.scene.start('GameOver', { won: false, score: this.score, level: this.level });
       });
     }
