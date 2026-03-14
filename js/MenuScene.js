@@ -1,5 +1,6 @@
 // ════════════════════════════════════
 //  MENU SCENE — title screen with controls and item guide
+//  Adapts layout for mobile (IS_TOUCH) vs desktop
 // ════════════════════════════════════
 class MenuScene extends Phaser.Scene {
   constructor() { super({ key: 'Menu' }); }
@@ -7,6 +8,7 @@ class MenuScene extends Phaser.Scene {
   create() {
     const W = GAME_W, H = GAME_H;
 
+    // ── BACKGROUND ──────────────────────────────────────────────
     this.add.tileSprite(0, 0, W, H, 'bgsheet', 0).setOrigin(0).setAlpha(0.9);
     this.add.tileSprite(0, H - 216, W, 216, 'bgsheet', 2).setOrigin(0).setAlpha(0.7);
 
@@ -18,11 +20,58 @@ class MenuScene extends Phaser.Scene {
 
     this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.42);
 
+    // ── CHARACTERS ──────────────────────────────────────────────
     this.add.sprite(200, H - 64, 'p-idle-0').setScale(1.5).play('p-idle');
     const e1 = this.add.sprite(500, H - 58, 'e-walk-0').setScale(1.5).play('e-walk');
     const e2 = this.add.sprite(630, H - 58, 'e-walk-0').setScale(1.5).play('e-walk').setTint(0xffbbcc);
     e1.setFlipX(true);
 
+    if (IS_TOUCH) {
+      this.createMobileMenu(W, H);
+    } else {
+      this.createDesktopMenu(W, H);
+    }
+  }
+
+  createMobileMenu(W, H) {
+    // Big title
+    this.add.text(W / 2, 55, 'Kind vs Müttern', {
+      fontSize: '52px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
+      stroke: '#5a0000', strokeThickness: 7, letterSpacing: 3
+    }).setOrigin(0.5);
+
+    this.add.text(W / 2, 110, 'von Noah B.', {
+      fontSize: '24px', fill: '#ffffff', fontFamily: '"Bangers", cursive',
+      stroke: '#000000', strokeThickness: 3
+    }).setOrigin(0.5);
+
+    // Minimal controls hint
+    this.add.text(W / 2, 160, '◀ ▶ Bewegen   ⬆ Springen   ● Werfen', {
+      fontSize: '16px', fill: '#aaddff', fontFamily: '"Nunito", sans-serif', fontWeight: '700',
+      stroke: '#000', strokeThickness: 2
+    }).setOrigin(0.5);
+
+    // Compact power-up list
+    this.add.rectangle(W / 2, 220, 480, 70, 0x000000, 0.5);
+    const items = 'Schild: 3 Treffer  |  Turbo: Schneller  |  Apfel: Werfen  |  Herz: +1 Leben';
+    this.add.text(W / 2, 220, items, {
+      fontSize: '13px', fill: '#cccccc', fontFamily: '"Nunito", sans-serif', fontWeight: '700',
+      wordWrap: { width: 460 }, align: 'center'
+    }).setOrigin(0.5);
+
+    // BIG START BUTTON
+    const btn = this.add.text(W / 2, 330, '  SPIEL STARTEN  ', {
+      fontSize: '38px', fill: '#ffffff', fontFamily: '"Bangers", cursive',
+      backgroundColor: '#8b1a1a', padding: { x: 30, y: 16 }, letterSpacing: 3
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+    btn.on('pointerdown', () => {
+      this.cameras.main.fadeOut(400, 0, 0, 0);
+      this.time.delayedCall(400, () => this.scene.start('Game'));
+    });
+    this.tweens.add({ targets: btn, scaleX: 1.03, scaleY: 1.03, duration: 600, yoyo: true, repeat: -1 });
+  }
+
+  createDesktopMenu(W, H) {
     this.add.text(W / 2, 60, 'Kind vs Müttern', {
       fontSize: '42px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
       stroke: '#5a0000', strokeThickness: 6, letterSpacing: 2
@@ -36,10 +85,8 @@ class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     this.add.rectangle(W / 2, 215, 500, 95, 0x000000, 0.5);
-    const controls = IS_TOUCH
-      ? ['◀ ▶ Tasten   Bewegen', '⬆ Taste   Springen (2x möglich)', '● Taste   Äpfel werfen']
-      : ['Pfeiltasten / WASD   Bewegen', '↑ / W   Springen (2x möglich)', 'LEERTASTE   Äpfel werfen'];
-    controls.forEach((c, i) => this.add.text(W / 2, 186 + i * 27, c, {
+    ['Pfeiltasten / WASD   Bewegen', '↑ / W   Springen (2x möglich)', 'LEERTASTE   Äpfel werfen']
+      .forEach((c, i) => this.add.text(W / 2, 186 + i * 27, c, {
         fontSize: '13px', fill: '#aaddff', fontFamily: '"Nunito", sans-serif', fontWeight: '700'
       }).setOrigin(0.5));
 
