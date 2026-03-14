@@ -25,11 +25,12 @@ class StoryScene extends Phaser.Scene {
     this.stepObjects = [];
     this.advancing = false;
 
-    // Tap anywhere to advance (except skip button area)
+    // Tap anywhere or press any key to advance
     this.input.on('pointerdown', (ptr) => {
       if (ptr.x > W - 100 && ptr.y < 50) return; // skip button zone
       this.advance();
     });
+    this.input.keyboard.on('keydown', () => this.advance());
 
     this.advance();
   }
