@@ -8,6 +8,10 @@ class MenuScene extends Phaser.Scene {
   create() {
     const W = GAME_W, H = GAME_H;
 
+    // Start music on first interaction anywhere (browser requires a gesture)
+    this.input.once('pointerdown', () => this.startMusic());
+    this.input.keyboard.once('keydown', () => this.startMusic());
+
     // ── BACKGROUND ──────────────────────────────────────────────
     this.add.tileSprite(0, 0, W, H, 'bgsheet', 0).setOrigin(0).setAlpha(0.9);
     this.add.tileSprite(0, H - 216, W, 216, 'bgsheet', 2).setOrigin(0).setAlpha(0.7);
