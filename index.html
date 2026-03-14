@@ -436,11 +436,12 @@ class GameScene extends Phaser.Scene {
       rect.visuals   = [glow, bg, lbl];
       this.collTriggers.add(rect);
 
-      this.tweens.add({
+      const floatTween = this.tweens.add({
         targets: [bg, lbl, glow], y: y - 8,
         duration: 900, yoyo: true, repeat: -1,
         ease: 'Sine.inOut', delay: Phaser.Math.Between(0, 800)
       });
+      rect.floatTween = floatTween;
     });
   }
 
@@ -551,9 +552,9 @@ class GameScene extends Phaser.Scene {
         e.direction = dir;
         if (!e.attacking) this.setEnemyAnim(e, e.chasing ? 'e-run' : 'e-walk');
 
-        // Jump down to chase player on lower level
-        if (distY > 80 && e.body.blocked.down && e.jumpCooldown === 0) {
-          e.setVelocityY(-380); // enemy hop to reach lower platform
+        // Jump up to chase player on a higher platform (player.y < e.y → distY < -80)
+        if (distY < -80 && e.body.blocked.down && e.jumpCooldown === 0) {
+          e.setVelocityY(-380); // enemy hop upward to reach player above
           e.jumpCooldown = 120;
         }
       } else {
@@ -603,20 +604,20 @@ class GameScene extends Phaser.Scene {
     fruit.body.setVelocity(dirX * 270, -50);
     fruit.body.setSize(24, 24);
 
-    fruit.trim     = null;   // no trim visual — kept for destroyShoe compatibility
+    fruit.trim     = null;   // no trim visual
     fruit.dirX     = dirX;
     fruit.isActive = true;
     this.projectiles.push(fruit);
 
     SFX.shoe();
-    this.time.delayedCall(3200, () => this.destroyShoe(fruit));
+    this.time.delayedCall(3200, () => this.destroyProjectile(fruit));
   }
 
-  destroyShoe(shoe) {
-    if (!shoe || !shoe.isActive) return;
-    shoe.isActive = false;
-    shoe.trim?.destroy();
-    shoe.destroy();
+  destroyProjectile(projectile) {
+    if (!projectile || !projectile.isActive) return;
+    projectile.isActive = false;
+    projectile.trim?.destroy();
+    projectile.destroy();
   }
 
 
@@ -630,13 +631,13 @@ class GameScene extends Phaser.Scene {
       }
       // Hit a platform
       if (shoe.body?.blocked.down || shoe.body?.blocked.left || shoe.body?.blocked.right) {
-        this.destroyShoe(shoe);
+        this.destroyProjectile(shoe);
         this.projectiles.splice(i, 1);
         continue;
       }
       // Hit player
       if (Phaser.Geom.Intersects.RectangleToRectangle(shoe.getBounds(), pb)) {
-        this.destroyShoe(shoe);
+        this.destroyProjectile(shoe);
         this.projectiles.splice(i, 1);
         this.takeDamage();
       }
@@ -699,6 +700,7 @@ class GameScene extends Phaser.Scene {
   onCollect(player, trigger) {
     if (!trigger.active) return;
     const type = trigger.bonusType;
+    trigger.floatTween?.stop();
     trigger.visuals?.forEach(v => v.destroy());
     trigger.destroy();
     this.score += 50;
