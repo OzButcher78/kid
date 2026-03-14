@@ -104,7 +104,7 @@ class BootScene extends Phaser.Scene {
     });
 
     // Player individual frames (64×64 each)
-    const pBase = 'assets/char1/Clothes1/Character1M_1_';
+    const pBase = 'assets/char1/Character1M_1_';
     ['idle','walk','run'].forEach(anim => {
       for (let i = 0; i < 8; i++)
         this.load.image(`p-${anim}-${i}`, `${pBase}${anim}_${i}.png`);
@@ -134,11 +134,22 @@ class BootScene extends Phaser.Scene {
         { frameWidth: 32, frameHeight: 32 });
     });
 
-    // Music
-    this.load.audio('music', 'assets/music.mp3');
-
     this.load.spritesheet('bgsheet',   'assets/Background-sheet.png', { frameWidth: 384, frameHeight: 216 });
     this.load.spritesheet('pinetrees', 'assets/PineTrees.png',        { frameWidth: 128, frameHeight: 128 });
+
+    // Boxes — three visual styles, each with Idle / Hit / Break frames
+    ['Box1','Box2','Box3'].forEach((box, i) => {
+      const k = `box${i + 1}`;
+      this.load.image(`${k}-idle`,  `assets/Boxes/${box}/Idle.png`);
+      this.load.image(`${k}-hit`,   encodeURI(`assets/Boxes/${box}/Hit (28x24).png`));
+      this.load.image(`${k}-break`, `assets/Boxes/${box}/Break.png`);
+    });
+
+    // Checkpoints & end marker
+    this.load.image('cp-noflag', encodeURI('assets/Checkpoints/Checkpoint/Checkpoint (No Flag).png'));
+    this.load.image('cp-idle',   encodeURI('assets/Checkpoints/Checkpoint/Checkpoint (Flag Idle)(64x64).png'));
+    this.load.image('end-idle',  encodeURI('assets/Checkpoints/End/End (Idle).png'));
+    this.load.image('end-press', encodeURI('assets/Checkpoints/End/End (Pressed) (64x64).png'));
   }
 
   create() {
@@ -263,6 +274,8 @@ class GameScene extends Phaser.Scene {
     this.projectiles  = [];
     this.wasOnGround  = true;
     this.groundFrames = 0;
+    this.respawnX     = 120;   // updated when player touches a checkpoint
+    this.respawnY     = GAME_H - 100;
   }
 
   create() {
@@ -307,12 +320,28 @@ class GameScene extends Phaser.Scene {
     this.enemies = this.physics.add.group();
     this.spawnEnemies(H);
 
+    // ── BOXES ─────────────────────────────────────────────────────
+    this.boxes = this.physics.add.staticGroup();
+    this.spawnBoxes(H);
+
+    // ── CHECKPOINTS ───────────────────────────────────────────────
+    this.spawnCheckpoints(H);
+
+    // ── PROJECTILE POOL ──────────────────────────────────────────
+    // Pre-allocate fruit sprites; reuse via group.get() / killAndHide()
+    // instead of creating/destroying on every throw → no GC hitches.
+    this.fruitPool = this.physics.add.group({
+      classType: Phaser.GameObjects.Sprite,
+      maxSize: 20,
+      runChildUpdate: false,
+    });
+
     // ── COLLECTIBLES ─────────────────────────────────────────────
     this.collTriggers = this.physics.add.staticGroup();
     this.spawnCollectibles(H);
 
     // ── GOAL ─────────────────────────────────────────────────────
-    this.add.text(W - 155, H - 158, '🏁', { fontSize: '52px' }).setDepth(5);
+    this.endSprite = this.add.image(W - 155, H - 100, 'end-idle').setScale(2).setDepth(5).setOrigin(0.5, 1);
     this.goalZone = this.add.zone(W - 155, H - 100, 80, 110).setOrigin(0.5);
     this.physics.world.enable(this.goalZone);
     this.goalZone.body.setAllowGravity(false);
@@ -320,6 +349,7 @@ class GameScene extends Phaser.Scene {
     // ── COLLISIONS ───────────────────────────────────────────────
     this.physics.add.collider(this.player, this.platforms);
     this.physics.add.collider(this.enemies, this.platforms);
+    this.physics.add.collider(this.player, this.boxes, this.onBoxHit, null, this);
     this.physics.add.overlap(this.player, this.enemies,      this.onEnemyContact, null, this);
     this.physics.add.overlap(this.player, this.collTriggers, this.onCollect,       null, this);
     this.physics.add.overlap(this.player, this.goalZone,     this.onGoalReached,   null, this);
@@ -329,9 +359,17 @@ class GameScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true, 0.1, 0.12);
 
     // ── BACKGROUND MUSIC ─────────────────────────────────────────
-    // Starts after user interaction (autoplay policy safe — game starts on button click)
-    this.music = this.sound.add('music', { loop: true, volume: 0.35 });
-    this.music.play();
+    // Loaded and played here (after user clicked SPIEL STARTEN) so AudioContext
+    // is already active — avoids Phaser 3.60 audio-decode hang in BootScene preload.
+    this.music = null;
+    this.load.audio('music', 'assets/music.mp3');
+    this.load.once('complete', () => {
+      try {
+        this.music = this.sound.add('music', { loop: true, volume: 0.35 });
+        this.music.play();
+      } catch(e) { console.warn('Music failed to start:', e); }
+    });
+    this.load.start();
     this.events.once('shutdown', () => { this.music?.stop(); });
 
     // ── INPUT ─────────────────────────────────────────────────────
@@ -463,7 +501,7 @@ class GameScene extends Phaser.Scene {
 
     if (this.player.y > GAME_H + 100) {
       this.takeDamage();
-      this.player.setPosition(Math.max(100, this.player.x - 200), GAME_H - 160);
+      this.player.setPosition(this.respawnX, this.respawnY);
       this.player.setVelocity(0, 0);
     }
   }
@@ -591,20 +629,22 @@ class GameScene extends Phaser.Scene {
     const sx   = enemy.x + dirX * 30;
     const sy   = enemy.y - 24;
 
-    // Pick a random fruit
     const fruitNames = ['apple','bananas','cherries','kiwi','melon','orange','pineapple','strawberry'];
     const fruitKey = 'fruit-' + Phaser.Utils.Array.GetRandom(fruitNames);
 
-    const fruit = this.add.sprite(sx, sy, fruitKey).setScale(1.5).setDepth(12);
+    // Get a pooled sprite (or null if pool is full — skip throw gracefully)
+    const fruit = this.fruitPool.get(sx, sy, fruitKey);
+    if (!fruit) return;
+
+    fruit.setActive(true).setVisible(true).setScale(1.5).setDepth(12);
     fruit.play(fruitKey);
 
-    this.physics.add.existing(fruit);
+    fruit.body.reset(sx, sy);
     fruit.body.setAllowGravity(true);
     fruit.body.setGravityY(-600);         // mostly flat flight path
     fruit.body.setVelocity(dirX * 270, -50);
     fruit.body.setSize(24, 24);
 
-    fruit.trim     = null;   // no trim visual
     fruit.dirX     = dirX;
     fruit.isActive = true;
     this.projectiles.push(fruit);
@@ -616,8 +656,9 @@ class GameScene extends Phaser.Scene {
   destroyProjectile(projectile) {
     if (!projectile || !projectile.isActive) return;
     projectile.isActive = false;
-    projectile.trim?.destroy();
-    projectile.destroy();
+    // Return to pool instead of destroying
+    this.fruitPool.killAndHide(projectile);
+    projectile.body.setVelocity(0, 0);
   }
 
 
@@ -697,27 +738,112 @@ class GameScene extends Phaser.Scene {
     });
   }
 
-  onCollect(player, trigger) {
-    if (!trigger.active) return;
-    const type = trigger.bonusType;
-    trigger.floatTween?.stop();
-    trigger.visuals?.forEach(v => v.destroy());
-    trigger.destroy();
-    this.score += 50;
-    SFX.collect();
-    this.spawnParticles(player.x, player.y - 20, 0xffffff, 6);
+  spawnBoxes(H) {
+    // [x, y, boxType (1-3), reward ('shield'|'star'|'heart'|'boots'|'fruit')]
+    const boxDefs = [
+      [340,  H-155, 1, 'heart'  ], [730,  H-368, 2, 'star'   ],
+      [1150, H-255, 3, 'shield' ], [1660, H-298, 1, 'boots'  ],
+      [2210, H-340, 2, 'heart'  ], [2720, H-205, 3, 'star'   ],
+      [3260, H-240, 1, 'shield' ], [3760, H-250, 2, 'boots'  ],
+      [4290, H-290, 3, 'fruit'  ], [4790, H-345, 1, 'heart'  ],
+    ];
+    boxDefs.forEach(([x, y, type, reward]) => {
+      const key = `box${type}`;
+      const img = this.add.image(x, y, `${key}-idle`).setScale(2).setDepth(5).setOrigin(0.5, 1);
+      this.physics.add.existing(img, true);
+      img.boxKey    = key;
+      img.boxReward = reward;
+      img.boxHit    = false;
+      this.boxes.add(img);
+    });
+  }
 
+  spawnCheckpoints(H) {
+    // Place checkpoints roughly every 1300px through the 5200px level
+    [1300, 2600, 3900].forEach((x, i) => {
+      const y = H - 32; // sit on the ground
+      const img = this.add.image(x, y, 'cp-noflag').setScale(2).setDepth(5).setOrigin(0.5, 1);
+      // Invisible trigger zone overlapping the sprite
+      const zone = this.add.zone(x, y - 32, 64, 80).setOrigin(0.5, 1);
+      this.physics.world.enable(zone);
+      zone.body.setAllowGravity(false);
+      zone.cpImage    = img;
+      zone.cpActivated = false;
+      zone.cpIndex    = i;
+      zone.respawnX   = x;
+      zone.respawnY   = H - 100;
+      this.physics.add.overlap(this.player, zone, this.onCheckpoint, null, this);
+    });
+  }
+
+  onCheckpoint(player, zone) {
+    if (zone.cpActivated) return;
+    zone.cpActivated = true;
+    zone.cpImage.setTexture('cp-idle');
+    this.respawnX = zone.respawnX;
+    this.respawnY = zone.respawnY;
+    this.showFloat(zone.respawnX, zone.respawnY - 80, 'CHECKPOINT!', '#00ff88');
+    SFX.collect();
+  }
+
+  onBoxHit(player, box) {
+    if (!box.active || box.boxHit) return;
+    // Only trigger when player jumps up into the bottom of the box
+    if (!this.player.body.blocked.up) return;
+    box.boxHit = true;
+    this.hitBox(box);
+  }
+
+  hitBox(box) {
+    // Hit flash
+    box.setTexture(`${box.boxKey}-hit`);
+    this.cameras.main.shake(60, 0.005);
+
+    this.time.delayedCall(100, () => {
+      if (!box.active) return;
+      box.setTexture(`${box.boxKey}-break`);
+
+      this.time.delayedCall(180, () => {
+        if (!box.active) return;
+        const rx = box.x;
+        const ry = box.y - box.displayHeight;
+
+        // Spawn reward
+        if (box.boxReward === 'fruit') {
+          const fruitNames = ['apple','bananas','cherries','kiwi','melon','orange','pineapple','strawberry'];
+          const fk = 'fruit-' + Phaser.Utils.Array.GetRandom(fruitNames);
+          const f = this.add.sprite(rx, ry - 20, fk).setScale(1.5).setDepth(7);
+          f.play(fk);
+          this.tweens.add({ targets: f, y: ry - 60, alpha: 0, duration: 800, onComplete: () => f.destroy() });
+          this.score += 50;
+          this.showFloat(rx, ry - 30, '+50', '#ffd700');
+        } else {
+          // Treat like a collectible pickup
+          this.applyPowerup(box.boxReward, rx, ry);
+        }
+
+        this.spawnParticles(rx, ry, 0xc8a050, 6);
+        this.boxes.remove(box, true, true);
+      });
+    });
+  }
+
+  // Shared power-up application (used by both box rewards and onCollect)
+  applyPowerup(type, x, y) {
+    SFX.collect();
+    this.score += 50;
+    this.spawnParticles(x, y, 0xffffff, 6);
     switch (type) {
       case 'shield':
         this.hasShield = true;
         this.events.emit('shieldOn');
-        this.showFloat(player.x, player.y - 50, 'SCHILD!', '#ffd700');
+        this.showFloat(x, y - 30, 'SCHILD!', '#ffd700');
         break;
       case 'star':
         this.isStarPow = true;
         this.player.setTint(0xffff55);
         this.events.emit('starOn', 5000);
-        this.showFloat(player.x, player.y - 50, 'UNVERWUNDBAR!', '#ffff44');
+        this.showFloat(x, y - 30, 'UNVERWUNDBAR!', '#ffff44');
         this.time.delayedCall(5000, () => {
           this.isStarPow = false;
           this.player?.clearTint();
@@ -727,12 +853,12 @@ class GameScene extends Phaser.Scene {
       case 'heart':
         this.lives = Math.min(this.lives + 1, 5);
         this.events.emit('livesChanged', this.lives);
-        this.showFloat(player.x, player.y - 50, '+1 LEBEN!', '#ff3366');
+        this.showFloat(x, y - 30, '+1 LEBEN!', '#ff3366');
         break;
       case 'boots':
         this.hasSuperBoot = true;
         this.events.emit('bootsOn', 10000);
-        this.showFloat(player.x, player.y - 50, 'SUPER-SPRUNG!', '#00ccff');
+        this.showFloat(x, y - 30, 'SUPER-SPRUNG!', '#00ccff');
         this.time.delayedCall(10000, () => {
           this.hasSuperBoot = false;
           this.events.emit('bootsOff');
@@ -741,9 +867,19 @@ class GameScene extends Phaser.Scene {
     }
   }
 
+  onCollect(player, trigger) {
+    if (!trigger.active) return;
+    const type = trigger.bonusType;
+    trigger.floatTween?.stop();
+    trigger.visuals?.forEach(v => v.destroy());
+    trigger.destroy();
+    this.applyPowerup(type, player.x, player.y - 30);
+  }
+
   onGoalReached() {
     if (this.gameOver) return;
     this.gameOver = true;
+    this.endSprite?.setTexture('end-press');
     this.physics.pause();
     this.music?.stop();
     SFX.win();
@@ -984,6 +1120,10 @@ new Phaser.Game({
   height: GAME_H,
   parent: 'game',
   backgroundColor: '#6aadbb',
+  scale: {
+    mode: Phaser.Scale.FIT,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+  },
   physics: {
     default: 'arcade',
     arcade: {

@@ -164,3 +164,84 @@ Do NOT open `index.html` as a `file://` URL — browser security blocks spritesh
 - Set `this.physics.world.drawDebug = true` in `create()` at runtime
 - Use browser DevTools → Performance tab to profile update loop frame times
 - Check browser console for Phaser warnings about missing frames or animation keys
+
+---
+
+## Troubleshooting Log
+
+<!-- Add entries here as problems are encountered and investigated.
+     Use the format below for each entry. -->
+
+<!--
+### [Problem title]
+**Symptom:** [what the user sees]
+**Root cause:** [what actually caused it, once known]
+**Attempts:**
+- [ ] Description of fix tried — FAILED / ✅ FIXED / 🔄 IN PROGRESS
+**Status:** Open / Resolved
+-->
+
+### Game stuck on "LADEN..." load screen — never transitions to menu
+**Symptom:** Progress bar visible, "LADEN..." text shows, game never reaches MenuScene.
+**Root cause:** `this.load.audio('music', ...)` in `BootScene.preload()`. Phaser 3.60 uses `audioContext.decodeAudioData()` internally; if `AudioContext` is still suspended (no user gesture yet), decoding can hang indefinitely and the Phaser loader never fires `complete`.
+**Attempts:**
+- ✅ FIXED — Move `this.load.audio('music', ...)` out of BootScene and into GameScene's `create()`, loading it after the user has already clicked "SPIEL STARTEN" (AudioContext is active). Use `this.load.once('complete', ...)` + `this.load.start()` for the lazy load.
+**Status:** Resolved (2026-03-14)
+
+---
+
+## Anti-loop Rules
+
+Rules derived from the troubleshooting log and reference docs to prevent getting stuck in repeated failed attempts at the same class of problem.
+
+- **Rule:** Never call `player.play()` directly — always go through `setPlayerAnim()`.
+  **Why:** Direct calls to `play()` desync `this.playerAnim` from the actual animation state, causing the guard logic in `handlePlayer` to make wrong decisions and producing animation flicker. (Project best practices; phaser3-platformer-bestpractices.md — "Animation Priority" section.)
+  **Applies to:** Any code path that changes the player's animation.
+
+- **Rule:** Never call `this.anims.create()` or `this.physics.add.collider()` inside `update()`.
+  **Why:** These calls run every frame, creating thousands of duplicate animation definitions and colliders that accumulate silently. All setup must live in `create()`. (phaser3-platformer-bestpractices.md — Common Pitfall #10.)
+  **Applies to:** Any new animation or physics collider being added to the game.
+
+- **Rule:** Never add per-object colliders inside `respawnEnemy` — the group colliders registered in `create()` cover all group members automatically.
+  **Why:** Adding extras creates duplicate colliders that stack up on every respawn, causing incorrect collision behaviour and memory growth. (Project best practices.)
+  **Applies to:** `respawnEnemy()` and any future per-enemy setup code.
+
+- **Rule:** Always register a `loaderror` listener in `BootScene.preload()` before queuing assets.
+  **Why:** Phaser silently skips assets that fail to load. Without the listener, a missing or mis-cased file produces no console error, making the root cause invisible. (phaser3-platformer-bestpractices.md — "load.on('loaderror') for Debugging".)
+  **Applies to:** Every asset load — spritesheets, images, audio.
+
+- **Rule:** Asset file names and paths must exactly match the case used in `this.load.*` calls, including on Windows during development.
+  **Why:** Windows file systems are case-insensitive; Linux servers (Vercel, Netlify) are case-sensitive. A path that works locally will silently 404 in production. (phaser3-platformer-bestpractices.md — "Case-Sensitive Paths on Linux Servers".)
+  **Applies to:** All files in `assets/` and their references in `BootScene`.
+
+- **Rule:** Always pass `ignoreIfPlaying = true` to `sprite.play()` for looping animations (idle, walk, fall); omit it (or pass `false`) only for one-shot animations (hurt, attack, death).
+  **Why:** Calling `play('run', false)` every frame resets the animation to frame 0 on every update tick, freezing the character on frame 0. (phaser3-platformer-bestpractices.md — "play(key, ignoreIfPlaying)".)
+  **Applies to:** All `sprite.play()` calls inside per-frame update logic.
+
+- **Rule:** Always clean up external event listeners (scene EventEmitter, DOM events) in the `events.on('shutdown', ...)` block; never leave this block empty or absent.
+  **Why:** Listeners added in `create()` persist through `scene.start()` restarts. Each restart adds a duplicate listener, causing handlers to fire multiple times and score/HUD values to compound. (phaser3-platformer-bestpractices.md — "Event Cleanup on shutdown"; project best practices.)
+  **Applies to:** HUDScene and any scene that listens to cross-scene events.
+
+- **Rule:** Use `Phaser.Input.Keyboard.JustDown()` for jump input; never use `.isDown` for one-shot actions.
+  **Why:** `.isDown` is true for every frame the key is held, causing the player to multi-jump or trigger repeated actions unintentionally. `JustDown` fires only on the first frame of the press. (phaser3-platformer-bestpractices.md — "JustDown vs isDown"; project best practices.)
+  **Applies to:** Jump, attack, pause, and any other single-trigger input.
+
+- **Rule:** Null-check or active-check every enemy object before accessing its physics body or calling methods on it.
+  **Why:** Inactive pooled objects still exist in the group's children array. Accessing `.body` on an inactive or destroyed object throws a runtime error and crashes the update loop. (Project best practices — "Null-check active objects".)
+  **Applies to:** All loops over enemy groups in `handleEnemies()` and `respawnEnemy()`.
+
+- **Rule:** Use `setActive(false).setVisible(false)` (or `group.killAndHide()`) to retire pooled objects — never `destroy()`.
+  **Why:** `destroy()` permanently removes the object from the group pool. The next spawn attempt silently fails or creates a new object outside the pool, breaking the collider setup. (phaser3-platformer-bestpractices.md — "setActive/setVisible vs destroy()".)
+  **Applies to:** Projectiles (shoes, fruit), enemy respawn flow, and any collectible recycling.
+
+- **Rule:** When adjusting a physics body with `setSize()` / `setOffset()`, work in unscaled texture-space units, not screen pixels.
+  **Why:** `setSize()` and `setOffset()` ignore any `setScale()` applied to the sprite. Using screen-pixel values produces a hitbox that is `scale` times larger than intended, invisible without `debug: true`. (phaser3-platformer-bestpractices.md — "Body Size vs Visual Size".)
+  **Applies to:** Player and enemy hitbox adjustments whenever sprite scale is non-1.
+
+- **Rule:** After repositioning a static group member at runtime, always call `group.refresh()`.
+  **Why:** Static body positions are cached. Moving the game object visually does not update the physics body; the collision surface stays at the original position until `refresh()` is called. (phaser3-platformer-bestpractices.md — Common Pitfall #2.)
+  **Applies to:** Any platform or static obstacle that is moved after `create()`.
+
+- **Rule:** Do not rely on `body.blocked.down` alone for grounded/landing detection — use the `groundFrames` debounce counter.
+  **Why:** `body.blocked.down` can flicker false for 1-2 frames during collision resolution (corners, moving surfaces), producing spurious jump resets and animation state jitter. The 2-frame debounce already in the project (`this.groundFrames`) is the correct gate. (phaser3-platformer-bestpractices.md — "body.blocked.down Flickering"; project architecture notes.)
+  **Applies to:** Jump eligibility checks, landing animation triggers, and coyote-time logic.
