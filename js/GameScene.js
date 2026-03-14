@@ -61,9 +61,9 @@ class GameScene extends Phaser.Scene {
     this.player.body.setOffset(17, 8);
     this.setPlayerAnim('p-idle');
 
-    // Shield ring visual
-    this.shieldRing = this.add.sprite(this.player.x, this.player.y, 'shield-ring', 0)
-      .setScale(2.2).setDepth(9).setVisible(false).setAlpha(0.85);
+    // Shield ring visual — programmatic rotating ring
+    this.shieldGfx = this.add.graphics().setDepth(9).setVisible(false);
+    this.shieldAngle = 0;
 
     // ── ENEMIES ──────────────────────────────────────────────────
     this.enemies = this.physics.add.group();
@@ -278,11 +278,33 @@ class GameScene extends Phaser.Scene {
     this.handleEnemies();
     this.checkProjectiles();
 
-    if (this.shieldRing) {
-      this.shieldRing.setPosition(this.player.x, this.player.y - 4)
-        .setVisible(this.shieldHits > 0);
-      if (this.shieldHits > 0 && !this.shieldRing.anims.isPlaying) {
-        this.shieldRing.play('shield-ring');
+    // Draw shield ring around player
+    if (this.shieldGfx) {
+      this.shieldGfx.setVisible(this.shieldHits > 0);
+      if (this.shieldHits > 0) {
+        this.shieldAngle += 2;   // degrees per frame
+        const cx = this.player.x;
+        const cy = this.player.y - 6;
+        const rx = 34, ry = 40;  // ellipse radii
+        const g = this.shieldGfx;
+        g.clear();
+        // Outer glow
+        g.lineStyle(5, 0xffd700, 0.2);
+        g.strokeEllipse(cx, cy, rx * 2 + 6, ry * 2 + 6);
+        // Main ring
+        g.lineStyle(3, 0xffd700, 0.7);
+        g.strokeEllipse(cx, cy, rx * 2, ry * 2);
+        // Orbiting dots for rotation feel
+        const dots = this.shieldHits;  // 1-3 dots showing remaining hits
+        for (let i = 0; i < dots; i++) {
+          const a = (this.shieldAngle + i * (360 / dots)) * Math.PI / 180;
+          const dx = cx + Math.cos(a) * rx;
+          const dy = cy + Math.sin(a) * ry;
+          g.fillStyle(0xffffff, 0.9);
+          g.fillCircle(dx, dy, 4);
+          g.fillStyle(0xffd700, 0.5);
+          g.fillCircle(dx, dy, 6);
+        }
       }
     }
     this.checkPlayerApples();
