@@ -63,11 +63,14 @@ class MenuScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Compact power-up list
-    this.add.rectangle(W / 2, 230, 500, 100, 0x000000, 0.5);
-    const items = 'Schild  |  Turbo  |  Äpfel  |  Herz  |  Regenbogen\nTeleport  |  Mini  |  Banane  |  Rakete  |  Dash';
-    this.add.text(W / 2, 220, items, {
-      fontSize: '13px', fill: '#cccccc', fontFamily: '"Nunito", sans-serif', fontWeight: '700',
-      wordWrap: { width: 460 }, align: 'center'
+    this.add.rectangle(W / 2, 230, 520, 80, 0x000000, 0.55);
+    this.add.text(W / 2, 216, 'Schild  |  Turbo  |  Äpfel  |  Herz  |  Regenbogen', {
+      fontSize: '15px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
+      stroke: '#000', strokeThickness: 2
+    }).setOrigin(0.5);
+    this.add.text(W / 2, 240, 'Teleport  |  Mini  |  Banane  |  Rakete  |  Dash', {
+      fontSize: '15px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
+      stroke: '#000', strokeThickness: 2
     }).setOrigin(0.5);
 
     // BIG START BUTTON
@@ -115,20 +118,21 @@ class MenuScene extends Phaser.Scene {
       }).setOrigin(0.5));
 
     this.add.text(W / 2, 290, 'POWER-UPS AUS KISTEN:', {
-      fontSize: '14px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800'
+      fontSize: '16px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
+      stroke: '#000', strokeThickness: 3, letterSpacing: 1
     }).setOrigin(0.5);
-    this.add.rectangle(W / 2, 365, 520, 120, 0x000000, 0.45);
-    [['Schild', '3 Treffer blocken', '#ffd700'], ['Turbo', 'Schneller laufen', '#00ffff'],
-     ['Äpfel', 'Werfen — LEERTASTE', '#ff6600'], ['Herz', '+1 Leben', '#ff3366'],
-     ['Regenbogen', 'Bunter Trail', '#ff00ff'], ['Teleport', 'Teleport-Apfel', '#aa00ff'],
-     ['Mini', 'Klein werden', '#88ff88'], ['Banane', 'Gegner rutschen', '#ffee00'],
-     ['Rakete', 'Langsam schweben', '#ff4400'], ['Dash', 'Sprint-Angriff', '#00ddff']]
-      .forEach(([name, desc, col], i) => {
-        const col2 = i < 5 ? 0 : 1;
+    this.add.rectangle(W / 2, 370, 540, 130, 0x000000, 0.55);
+    [['Schild', '3x Blocken'], ['Turbo', 'Schneller'], ['Äpfel', 'Werfen'],
+     ['Herz', '+1 Leben'], ['Regenbogen', 'Trail'],
+     ['Teleport', 'Apfel-Port'], ['Mini', 'Schrumpfen'], ['Banane', 'Ausrutschen'],
+     ['Rakete', 'Schweben'], ['Dash', 'Sprint']]
+      .forEach(([name, desc], i) => {
+        const c = i < 5 ? 0 : 1;
         const row = i % 5;
-        const bx = W / 2 + (col2 === 0 ? -130 : 130);
-        this.add.text(bx, 316 + row * 20, `• ${name}: ${desc}`, {
-          fontSize: '10px', fill: col, fontFamily: '"Nunito", sans-serif', fontWeight: '700'
+        const bx = W / 2 + (c === 0 ? -130 : 130);
+        this.add.text(bx, 316 + row * 22, `${name}: ${desc}`, {
+          fontSize: '13px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
+          stroke: '#000000', strokeThickness: 2
         }).setOrigin(0.5);
       });
 
