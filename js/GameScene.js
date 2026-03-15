@@ -316,33 +316,34 @@ class GameScene extends Phaser.Scene {
     const cur  = ePlatform;
 
     if (step.type === 'jump') {
-      // Direction toward the next platform's center
-      const jumpDir = next.x > cur.x ? 1 : -1;
+      // CRITICAL: platforms are SOLID — can't jump through from below!
+      // Must always jump from BESIDE the target platform, not under it.
+      // Run to just past the left or right edge of the target, then jump up and arc onto it.
 
-      // Check if platforms overlap horizontally
-      const overlapL = Math.max(cur.left, next.left);
-      const overlapR = Math.min(cur.right, next.right);
-      const hasOverlap = overlapR > overlapL;
+      // Pick which edge of the target platform is closer to the enemy
+      const distToLeft  = Math.abs(enemyX - next.left);
+      const distToRight = Math.abs(enemyX - next.right);
 
-      let jumpX;
-      if (hasOverlap) {
-        // Platforms overlap — jump from center of overlap zone (straight up works)
-        jumpX = (overlapL + overlapR) / 2;
+      let jumpX, jumpDir;
+      if (distToLeft <= distToRight) {
+        // Approach from the left side — run to just left of the target's left edge
+        jumpX = next.left - 30;
+        jumpDir = 1;  // jump rightward onto the platform
       } else {
-        // NO overlap — must run to the edge and jump across
-        // Launch from the edge of current platform closest to the next platform
-        if (jumpDir > 0) {
-          jumpX = cur.right - 15; // right edge
-        } else {
-          jumpX = cur.left + 15;  // left edge
-        }
+        // Approach from the right side
+        jumpX = next.right + 30;
+        jumpDir = -1;  // jump leftward onto the platform
       }
+
+      // Clamp jumpX to stay within current platform bounds (if possible)
+      // If the launch point is off our platform, that's OK — we'll run off the edge
+      jumpX = Phaser.Math.Clamp(jumpX, cur.left - 40, cur.right + 40);
 
       return {
         x: jumpX,
         dir: jumpX > enemyX ? 1 : (jumpX < enemyX ? -1 : jumpDir),
         jump: true,
-        jumpDir: jumpDir, // direction to move DURING the jump
+        jumpDir: jumpDir,
       };
     } else {
       // Drop down — run off the edge toward the next platform
