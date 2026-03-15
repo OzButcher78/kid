@@ -677,16 +677,28 @@ class GameScene extends Phaser.Scene {
         const jumpCD    = Math.max(25, 50 - this.level * 5);
 
         const onGround = e.body.blocked.down;
-        const samePlatform = Math.abs(distY) < 40;
 
-        if (samePlatform || !onGround) {
-          // ── SAME LEVEL or AIRBORNE: run directly toward player ──
+        // Check if ACTUALLY on the same platform (not just similar Y)
+        const ePlat = onGround ? this.findPlatformAt(e.x, e.y) : null;
+        const pPlat = this.findPlatformAt(this.player.x, this.player.y);
+        const trueSamePlatform = ePlat && pPlat && ePlat === pPlat;
+
+        if (!onGround) {
+          // AIRBORNE: keep moving toward player
+          const dir = distX > 0 ? 1 : -1;
+          e.setVelocityX(dir * speed * 1.2);
+          e.setFlipX(dir < 0);
+          e.direction = dir;
+          if (!e.attacking) this.setEnemyAnim(e, 'e-run');
+        } else if (trueSamePlatform) {
+          // ON THE SAME PLATFORM: run directly toward player
           const dir = distX > 0 ? 1 : -1;
           e.setVelocityX(dir * speed);
           e.setFlipX(dir < 0);
           e.direction = dir;
           if (!e.attacking) this.setEnemyAnim(e, 'e-run');
-          if ((e.body.blocked.left || e.body.blocked.right) && onGround && e.jumpCooldown === 0) {
+          // Jump over walls on this platform
+          if ((e.body.blocked.left || e.body.blocked.right) && e.jumpCooldown === 0) {
             e.setVelocityY(jumpPower);
             e.jumpCooldown = jumpCD;
           }
