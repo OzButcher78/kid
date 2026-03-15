@@ -57,6 +57,7 @@ class GameScene extends Phaser.Scene {
     // ── PLATFORMS ────────────────────────────────────────────────
     this.platforms = this.physics.add.staticGroup();
     this.buildLevel(W, H);
+    this.buildNavGraph();  // pre-compute platform connections for enemy AI
 
     // ── PLAYER ───────────────────────────────────────────────────
     // BUG-001 fix: setSize(30,40) so body bottom = texture row 48, matching feet at row 47
@@ -220,90 +221,118 @@ class GameScene extends Phaser.Scene {
     ].forEach(([x, y, w]) => addPlat(x, y, w));
   }
 
-  // ── PLATFORM-AWARE AI HELPERS ─────────────────────────────────
+  // ── PLATFORM-AWARE AI: NAV GRAPH + BFS PATHFINDING ───────────
 
-  // Find which platform an entity is standing on (or closest below)
+  // Build navigation graph once after level is created
+  buildNavGraph() {
+    const maxJumpH  = 150;  // max jump height in pixels
+    const maxJumpDx = 200;  // max horizontal distance coverable during a jump
+    const plats = this.platData;
+
+    // For each platform, find which other platforms are reachable
+    for (let i = 0; i < plats.length; i++) {
+      plats[i].id = i;
+      plats[i].neighbors = [];
+    }
+
+    for (let i = 0; i < plats.length; i++) {
+      for (let j = 0; j < plats.length; j++) {
+        if (i === j) continue;
+        const a = plats[i], b = plats[j];
+        // Can jump UP from a to b?
+        const hDiff = a.top - b.top; // positive = b is higher
+        if (hDiff > 0 && hDiff <= maxJumpH) {
+          // Horizontal gap: distance between closest edges
+          const gap = Math.max(0, b.left - a.right, a.left - b.right);
+          if (gap <= maxJumpDx) {
+            a.neighbors.push({ plat: b, type: 'jump' });
+          }
+        }
+        // Can DROP from a to b? (b is lower, and horizontally overlapping or close)
+        if (hDiff < 0 && hDiff > -400) {
+          const gap = Math.max(0, b.left - a.right, a.left - b.right);
+          if (gap <= maxJumpDx) {
+            a.neighbors.push({ plat: b, type: 'drop' });
+          }
+        }
+      }
+    }
+  }
+
+  // Find which platform an entity is standing on
   findPlatformAt(ex, ey) {
     let best = null, bestDist = Infinity;
     for (const p of this.platData) {
-      // Entity must be above or on the platform, and within its horizontal span
-      if (ex >= p.left - 20 && ex <= p.right + 20 && ey <= p.top + 10) {
+      if (ex >= p.left - 30 && ex <= p.right + 30) {
         const d = p.top - ey;
-        if (d >= -10 && d < bestDist) { bestDist = d; best = p; }
+        if (d >= -15 && d < bestDist) { bestDist = d; best = p; }
       }
     }
     return best;
   }
 
-  // Find the best platform to jump to in order to reach target platform
-  // Returns: { x, dir } — the X position to run to and jump from, or null
-  findPathToPlat(enemyX, enemyY, targetPlat) {
+  // BFS: find shortest path of platforms from start to goal
+  findPlatPath(startPlat, goalPlat) {
+    if (!startPlat || !goalPlat || startPlat === goalPlat) return null;
+
+    const queue = [{ plat: startPlat, path: [] }];
+    const visited = new Set([startPlat.id]);
+
+    while (queue.length > 0) {
+      const { plat, path } = queue.shift();
+      for (const edge of plat.neighbors) {
+        if (visited.has(edge.plat.id)) continue;
+        const newPath = [...path, { from: plat, to: edge.plat, type: edge.type }];
+        if (edge.plat === goalPlat) return newPath;
+        visited.add(edge.plat.id);
+        queue.push({ plat: edge.plat, path: newPath });
+      }
+    }
+    return null; // no path found
+  }
+
+  // Get the next waypoint for an enemy chasing the player
+  // Returns: { x, dir, jump } or null
+  getNavWaypoint(enemyX, enemyY, targetPlat) {
     if (!targetPlat) return null;
 
-    // Find what platform the enemy is on
     const ePlatform = this.findPlatformAt(enemyX, enemyY);
     if (!ePlatform) return null;
+    if (ePlatform === targetPlat) return null; // already there
 
-    // Already on the target platform
-    if (ePlatform === targetPlat) return null;
+    const path = this.findPlatPath(ePlatform, targetPlat);
+    if (!path || path.length === 0) {
+      // No path found — run toward player as fallback
+      return { x: targetPlat.x, dir: targetPlat.x > enemyX ? 1 : -1, jump: false };
+    }
 
-    const maxJumpHeight = 140; // max pixels an enemy can jump up (at scale)
+    // Take the FIRST step in the path
+    const step = path[0];
+    const next = step.to;
 
-    // Strategy 1: Can we jump directly to the target from current platform?
-    // Target must be above (within jump range) and overlapping or near our edges
-    const heightDiff = ePlatform.top - targetPlat.top;
-    if (heightDiff > 0 && heightDiff < maxJumpHeight) {
-      // Run to the edge of our platform closest to target's edge, then jump
-      const targetCenterX = (targetPlat.left + targetPlat.right) / 2;
-      // Find which edge of target is closest
+    if (step.type === 'jump') {
+      // Need to jump up to next platform
+      // Calculate best X position to jump from: aim for the closest edge of the target
       let jumpX;
-      if (enemyX < targetPlat.left) {
-        // Enemy is to the left — run to right edge of our platform, jump toward target's left edge
-        jumpX = Math.min(ePlatform.right - 20, targetPlat.left + 30);
-      } else if (enemyX > targetPlat.right) {
-        // Enemy is to the right — run to left edge of our platform
-        jumpX = Math.max(ePlatform.left + 20, targetPlat.right - 30);
+      if (enemyX < next.left) {
+        // Enemy is left of target — run right, toward target's left edge
+        jumpX = Phaser.Math.Clamp(next.left - 15, ePlatform.left + 10, ePlatform.right - 10);
+      } else if (enemyX > next.right) {
+        // Enemy is right of target — run left
+        jumpX = Phaser.Math.Clamp(next.right + 15, ePlatform.left + 10, ePlatform.right - 10);
       } else {
-        // Already horizontally overlapping — just jump straight up
-        jumpX = Phaser.Math.Clamp(targetCenterX, ePlatform.left + 10, ePlatform.right - 10);
+        // Overlapping horizontally — jump from center of overlap
+        const overlapL = Math.max(ePlatform.left, next.left);
+        const overlapR = Math.min(ePlatform.right, next.right);
+        jumpX = (overlapL + overlapR) / 2;
       }
       return { x: jumpX, dir: jumpX > enemyX ? 1 : -1, jump: true };
+    } else {
+      // Drop down — run off the edge of current platform toward the next one
+      const dropDir = next.x > enemyX ? 1 : -1;
+      const edgeX = dropDir > 0 ? ePlatform.right + 20 : ePlatform.left - 20;
+      return { x: edgeX, dir: dropDir, jump: false };
     }
-
-    // Strategy 2: Find an intermediate platform that bridges us closer
-    // Look for platforms between our height and target height
-    let bestIntermediate = null, bestScore = Infinity;
-    for (const p of this.platData) {
-      if (p === ePlatform || p === targetPlat) continue;
-      const hUp = ePlatform.top - p.top;
-      // Must be reachable by jumping (above us, within jump range)
-      if (hUp <= 0 || hUp > maxJumpHeight) continue;
-      // Must be closer to the target vertically
-      if (p.top >= ePlatform.top) continue;
-      // Prefer platforms that are horizontally close to us AND closer to target
-      const hToTarget = Math.abs(p.x - targetPlat.x);
-      const hToEnemy  = Math.abs(p.x - enemyX);
-      const score = hToTarget + hToEnemy * 0.5;
-      if (score < bestScore) { bestScore = score; bestIntermediate = p; }
-    }
-
-    if (bestIntermediate) {
-      // Run to the edge closest to intermediate platform, then jump
-      let jumpX;
-      if (enemyX < bestIntermediate.left) {
-        jumpX = Math.min(ePlatform.right - 10, bestIntermediate.left + 20);
-      } else if (enemyX > bestIntermediate.right) {
-        jumpX = Math.max(ePlatform.left + 10, bestIntermediate.right - 20);
-      } else {
-        jumpX = bestIntermediate.x;
-      }
-      return { x: jumpX, dir: jumpX > enemyX ? 1 : -1, jump: true };
-    }
-
-    // Strategy 3: Drop down — run to the edge of our platform in the direction of the target
-    const dropDir = targetPlat.x > enemyX ? 1 : -1;
-    const dropX = dropDir > 0 ? ePlatform.right + 30 : ePlatform.left - 30;
-    return { x: dropX, dir: dropDir, jump: false };
   }
 
   spawnEnemies(H) {
@@ -638,57 +667,55 @@ class GameScene extends Phaser.Scene {
           e.setFlipX(dir < 0);
           e.direction = dir;
           if (!e.attacking) this.setEnemyAnim(e, 'e-run');
-          // Jump over walls
           if ((e.body.blocked.left || e.body.blocked.right) && onGround && e.jumpCooldown === 0) {
             e.setVelocityY(jumpPower);
             e.jumpCooldown = jumpCD;
           }
         } else {
-          // ── DIFFERENT LEVEL: use platform-aware pathfinding ──
-          // Recalculate nav target every ~30 frames to avoid jitter
+          // ── DIFFERENT LEVEL: BFS pathfinding through platform graph ──
           if (!e._navTimer) e._navTimer = 0;
           e._navTimer--;
           if (e._navTimer <= 0) {
-            e._navTimer = 30;
+            e._navTimer = 25; // recalculate every 25 frames
             const targetPlat = this.findPlatformAt(this.player.x, this.player.y);
-            const nav = this.findPathToPlat(e.x, e.y, targetPlat);
-            e._navTarget = nav;
+            e._navTarget = this.getNavWaypoint(e.x, e.y, targetPlat);
           }
 
           const nav = e._navTarget;
           if (nav) {
-            // Run toward the navigation waypoint
             const dx = nav.x - e.x;
-            const atWaypoint = Math.abs(dx) < 25;
+            const atWaypoint = Math.abs(dx) < 30;
             const dir = dx > 0 ? 1 : -1;
 
-            e.setVelocityX(dir * speed * 1.1);
+            e.setVelocityX(dir * speed * 1.15);
             e.setFlipX(dir < 0);
             e.direction = dir;
             if (!e.attacking) this.setEnemyAnim(e, 'e-run');
 
-            // Jump when we reach the waypoint (if nav says to jump)
+            // At waypoint: jump if nav says so
             if (atWaypoint && nav.jump && onGround && e.jumpCooldown === 0) {
               e.setVelocityY(jumpPower);
               e.jumpCooldown = jumpCD;
-              e._navTimer = 0; // recalculate after landing
+              e._navTimer = 0; // recalculate immediately after landing
             }
-            // Jump over walls on the way
+            // Jump over walls blocking our path
             if ((e.body.blocked.left || e.body.blocked.right) && onGround && e.jumpCooldown === 0) {
               e.setVelocityY(jumpPower);
               e.jumpCooldown = jumpCD;
-            }
-            // If dropping off a platform edge, clear nav to recalculate
-            if (!onGround && !nav.jump) {
               e._navTimer = 0;
             }
           } else {
-            // Fallback: run directly toward player
+            // No path / fallback: run toward player directly
             const dir = distX > 0 ? 1 : -1;
             e.setVelocityX(dir * speed);
             e.setFlipX(dir < 0);
             e.direction = dir;
             if (!e.attacking) this.setEnemyAnim(e, 'e-run');
+            // Try to jump if stuck
+            if (distY < -50 && onGround && e.jumpCooldown === 0) {
+              e.setVelocityY(jumpPower);
+              e.jumpCooldown = jumpCD;
+            }
           }
         }
       } else {
