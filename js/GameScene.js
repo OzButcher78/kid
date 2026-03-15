@@ -527,25 +527,68 @@ class GameScene extends Phaser.Scene {
       }
 
       if (e.chasing) {
-        const dir = distX > 0 ? 1 : -1;
         const baseSpeed = e.enemyType === 'enemy1' ? 75 : 90;
         const speed = baseSpeed * e.speedMult;
-        e.setVelocityX(dir * speed);
-        e.setFlipX(dir < 0);
-        e.direction = dir;
-        if (!e.attacking) this.setEnemyAnim(e, e.chasing ? 'e-run' : 'e-walk');
+        const jumpPower = -420 - (this.level - 1) * 15;
+        const jumpCD    = Math.max(40, 80 - this.level * 5);
 
-        // Smart jumping: higher jump, shorter cooldown, scales with level
-        const jumpPower = -420 - (this.level - 1) * 15;  // stronger each level
-        const jumpCD    = Math.max(40, 80 - this.level * 5);  // faster cooldown each level
-        if (distY < -50 && e.body.blocked.down && e.jumpCooldown === 0) {
-          e.setVelocityY(jumpPower);
-          e.jumpCooldown = jumpCD;
-        }
-        // Also jump over walls while chasing
-        if ((e.body.blocked.left || e.body.blocked.right) && e.body.blocked.down && e.jumpCooldown === 0) {
-          e.setVelocityY(jumpPower);
-          e.jumpCooldown = jumpCD;
+        // Track failed jumps — if enemy keeps jumping but not reaching player
+        if (!e._failedJumps) e._failedJumps = 0;
+        if (!e._flanking) e._flanking = false;
+
+        const playerAbove = distY < -50;
+        const playerClose = dist < 80;
+
+        // If player is above and enemy has failed 2+ jumps, flank instead
+        if (e._failedJumps >= 2 && playerAbove && !playerClose) {
+          e._flanking = true;
+          // Run sideways to get under the player's platform, then jump
+          // Alternate direction: run past the player's X to approach from the side
+          const flankDir = (e.x < this.player.x) ? 1 : -1;
+          e.setVelocityX(flankDir * speed * 1.3);
+          e.setFlipX(flankDir < 0);
+          e.direction = flankDir;
+          if (!e.attacking) this.setEnemyAnim(e, 'e-run');
+
+          // Once roughly under the player (within 60px horizontal), jump up
+          if (dist < 60 && e.body.blocked.down && e.jumpCooldown === 0) {
+            e.setVelocityY(jumpPower);
+            e.jumpCooldown = jumpCD;
+            e._failedJumps = 0;
+            e._flanking = false;
+          }
+          // Reset flanking if we've run too far (>400px past player)
+          if (dist > 400) {
+            e._flanking = false;
+            e._failedJumps = 0;
+          }
+        } else {
+          e._flanking = false;
+          // Normal chase: run toward player
+          const dir = distX > 0 ? 1 : -1;
+          e.setVelocityX(dir * speed);
+          e.setFlipX(dir < 0);
+          e.direction = dir;
+          if (!e.attacking) this.setEnemyAnim(e, 'e-run');
+
+          // Jump when player is above
+          if (playerAbove && e.body.blocked.down && e.jumpCooldown === 0) {
+            e.setVelocityY(jumpPower);
+            e.jumpCooldown = jumpCD;
+            // Track: if we land and player is still above, count as failed
+            this.time.delayedCall(600, () => {
+              if (e?.active && this.player.y < e.y - 50) {
+                e._failedJumps = (e._failedJumps || 0) + 1;
+              } else {
+                e._failedJumps = 0;
+              }
+            });
+          }
+          // Jump over walls
+          if ((e.body.blocked.left || e.body.blocked.right) && e.body.blocked.down && e.jumpCooldown === 0) {
+            e.setVelocityY(jumpPower);
+            e.jumpCooldown = jumpCD;
+          }
         }
       } else {
         e.setVelocityX(e.direction * 38 * e.speedMult);
