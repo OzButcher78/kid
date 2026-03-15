@@ -648,14 +648,12 @@ class GameScene extends Phaser.Scene {
       const distX = this.player.x - e.x;
       const distY = this.player.y - e.y;
       const dist  = Math.abs(distX);
-      const distYAbs = Math.abs(distY);
-
       if (e.jumpCooldown > 0) e.jumpCooldown--;
 
-      // Chase range widens with level
-      const chaseRange = 350 + (this.level - 1) * 30;
-      const canChase = dist < chaseRange && distYAbs < 120;
-      const chaseLimitX = 500 + (this.level - 1) * 40;
+      // Chase range widens with level — no Y restriction so enemies chase to higher platforms
+      const chaseRange = 400 + (this.level - 1) * 30;
+      const canChase = dist < chaseRange;   // removed distYAbs check — enemies must chase vertically
+      const chaseLimitX = 600 + (this.level - 1) * 40;
       const patrolExtended = 200;
 
       if (canChase) {
