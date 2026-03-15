@@ -707,11 +707,32 @@ class GameScene extends Phaser.Scene {
 
           // Init tracking state
           if (e._totalFails == null) e._totalFails = 0;
-          if (!e._preferSide)  e._preferSide = 0;   // 0=auto, 1=left, 2=right
+          if (!e._preferSide)  e._preferSide = 0;
           if (!e._retreating)  e._retreating = false;
           if (!e._retreatTarget) e._retreatTarget = 0;
 
-          // RETREAT MODE: after multiple failures, run far away before re-attempting
+          // ── STUCK DETECTOR: if barely moved in ~2 seconds, force big retreat ──
+          if (!e._stuckCheckTimer) e._stuckCheckTimer = 0;
+          if (!e._lastCheckX) e._lastCheckX = e.x;
+          e._stuckCheckTimer++;
+          if (e._stuckCheckTimer >= 120) { // ~2 seconds at 60fps
+            const moved = Math.abs(e.x - e._lastCheckX);
+            if (moved < 60 && onGround) {
+              // STUCK! Spinning in place — force a big retreat
+              e._retreating = true;
+              const retreatDir = Math.random() < 0.5 ? -1 : 1;
+              e._retreatTarget = Phaser.Math.Clamp(
+                e.x + retreatDir * Phaser.Math.Between(250, 450), 50, LEVEL_W - 50
+              );
+              e._preferSide = Phaser.Math.Between(1, 2);
+              e._totalFails = 0;
+              e._navTimer = 0;
+            }
+            e._lastCheckX = e.x;
+            e._stuckCheckTimer = 0;
+          }
+
+          // RETREAT MODE: run far away before re-attempting
           if (e._retreating) {
             const dx = e._retreatTarget - e.x;
             if (Math.abs(dx) < 30) {
@@ -736,7 +757,7 @@ class GameScene extends Phaser.Scene {
           if (!e._navTimer) e._navTimer = 0;
           e._navTimer--;
           if (e._navTimer <= 0) {
-            e._navTimer = 20;
+            e._navTimer = 50; // commit to waypoint for ~0.8s before reconsidering
             const targetPlat = this.findPlatformAt(this.player.x, this.player.y);
             e._navTarget = this.getNavWaypoint(e.x, e.y, targetPlat, e._preferSide);
           }
