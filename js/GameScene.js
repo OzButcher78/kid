@@ -1137,13 +1137,13 @@ class GameScene extends Phaser.Scene {
       case 'shield':
         this.shieldHits = 3;
         this.events.emit('shieldOn', 3);
-        this.showFloat(x, y - 30, 'SCHILD x3!', '#ffd700');
+        this.showFloat(x, y - 30, 'SCHILD x3!', '#ffd700', true);
         break;
       case 'speed':
         this.hasSpeed = true;
         this.player.setTint(0x00ffff);
         this.events.emit('speedOn', 8000);
-        this.showFloat(x, y - 30, 'TURBO!', '#00ffff');
+        this.showFloat(x, y - 30, 'TURBO!', '#00ffff', true);
         this.time.delayedCall(8000, () => {
           this.hasSpeed = false;
           this.player?.clearTint();
@@ -1153,17 +1153,17 @@ class GameScene extends Phaser.Scene {
       case 'heart':
         this.lives = Math.min(this.lives + 1, 5);
         this.events.emit('livesChanged', this.lives);
-        this.showFloat(x, y - 30, '+1 LEBEN!', '#ff3366');
+        this.showFloat(x, y - 30, '+1 LEBEN!', '#ff3366', true);
         break;
       case 'apple':
         this.hasApple = true;
         this.appleCount = 3;
         this.events.emit('appleOn', 3);
-        this.showFloat(x, y - 30, '3 ÄPFEL! [SPACE]', '#ff6600');
+        this.showFloat(x, y - 30, '3 ÄPFEL! [SPACE]', '#ff6600', true);
         break;
       case 'rainbow':
         this.hasRainbow = true;
-        this.showFloat(x, y - 30, 'REGENBOGEN!', '#ff00ff');
+        this.showFloat(x, y - 30, 'REGENBOGEN!', '#ff00ff', true);
         this.time.delayedCall(10000, () => { this.hasRainbow = false; });
         break;
       case 'teleport':
@@ -1172,14 +1172,14 @@ class GameScene extends Phaser.Scene {
         this.hasApple = true;
         this.appleCount = 2;
         this.events.emit('appleOn', 2);
-        this.showFloat(x, y - 30, 'TELEPORT-APFEL x2!', '#aa00ff');
+        this.showFloat(x, y - 30, 'TELEPORT-APFEL x2!', '#aa00ff', true);
         break;
       case 'mini':
         this.isMini = true;
         this.player.setScale(0.8);
         this.player.body.setSize(14, 24);
         this.player.body.setOffset(25, 24);
-        this.showFloat(x, y - 30, 'MINI-MODUS!', '#88ff88');
+        this.showFloat(x, y - 30, 'MINI-MODUS!', '#88ff88', true);
         this.time.delayedCall(8000, () => {
           this.isMini = false;
           if (this.player?.active) {
@@ -1192,11 +1192,11 @@ class GameScene extends Phaser.Scene {
       case 'banana':
         this.hasBanana = true;
         this.bananaCount = 3;
-        this.showFloat(x, y - 30, 'BANANEN x3!', '#ffee00');
+        this.showFloat(x, y - 30, 'BANANEN x3!', '#ffee00', true);
         break;
       case 'rocket':
         this.hasRocket = true;
-        this.showFloat(x, y - 30, 'RAKETENSTIEFEL!', '#ff4400');
+        this.showFloat(x, y - 30, 'RAKETENSTIEFEL!', '#ff4400', true);
         this.time.delayedCall(6000, () => {
           this.hasRocket = false;
           if (this.player?.active) this.player.clearTint();
@@ -1204,7 +1204,7 @@ class GameScene extends Phaser.Scene {
         break;
       case 'dash':
         this.hasDash = true;
-        this.showFloat(x, y - 30, 'DASH BEREIT! [SPACE]', '#00ddff');
+        this.showFloat(x, y - 30, 'DASH BEREIT! [SPACE]', '#00ddff', true);
         break;
     }
   }
@@ -1312,16 +1312,25 @@ class GameScene extends Phaser.Scene {
     }
   }
 
-  showFloat(x, y, msg, color = '#fff') {
+  showFloat(x, y, msg, color = '#fff', big = false) {
     const t = this.add.text(x, y, msg, {
-      fontSize: '15px', fill: color,
+      fontSize: big ? '42px' : '15px', fill: color,
       fontFamily: '"Bangers", cursive',
-      stroke: '#000000', strokeThickness: 3, letterSpacing: 1
-    }).setOrigin(0.5).setDepth(20);
-    this.tweens.add({
-      targets: t, y: y - 55, alpha: 0, duration: 1200,
-      ease: 'Cubic.Out', onComplete: () => t.destroy()
-    });
+      stroke: '#000000', strokeThickness: big ? 5 : 3, letterSpacing: big ? 2 : 1
+    }).setOrigin(0.5).setDepth(20).setScrollFactor(big ? 0 : 1);
+    if (big) {
+      // Start large in center of screen, shrink then fade
+      t.setPosition(GAME_W / 2, GAME_H / 2 - 30).setScale(1.5);
+      this.tweens.add({
+        targets: t, scaleX: 0.6, scaleY: 0.6, alpha: 0, duration: 2000,
+        ease: 'Cubic.Out', onComplete: () => t.destroy()
+      });
+    } else {
+      this.tweens.add({
+        targets: t, y: y - 55, alpha: 0, duration: 1200,
+        ease: 'Cubic.Out', onComplete: () => t.destroy()
+      });
+    }
   }
 
   spawnParticles(x, y, color, count) {
