@@ -127,6 +127,21 @@ class GameOverScene extends Phaser.Scene {
       () => { this.fade(() => this.scene.start('Game')); });
     this.makeBtn(W / 2 + 110, H - 50, 'HAUPTMENÜ', '#1a2a3a',
       () => { this.fade(() => this.scene.start('Menu')); });
+
+    // Auto-return to menu after 30s if no score submitted
+    this._timeout = this.time.delayedCall(30000, () => {
+      if (!this.nameSubmitted) this.fade(() => this.scene.start('Menu'));
+    });
+    // Countdown text
+    this._countdownTxt = this.add.text(W / 2, H - 18, '', {
+      fontSize: '11px', fill: '#666666', fontFamily: '"Nunito", sans-serif', fontWeight: '700'
+    }).setOrigin(0.5);
+    this._countdownStart = this.time.now;
+    this.time.addEvent({ delay: 1000, loop: true, callback: () => {
+      if (this.nameSubmitted) { this._countdownTxt.setVisible(false); return; }
+      const left = Math.max(0, 30 - Math.floor((this.time.now - this._countdownStart) / 1000));
+      this._countdownTxt.setText(`Hauptmenü in ${left}s...`);
+    }});
   }
 
   positionDomInput() {
@@ -147,6 +162,7 @@ class GameOverScene extends Phaser.Scene {
     if (IS_TOUCH && this.domInput) this.playerName = this.domInput.value.slice(0, 10);
     if (!this.playerName || this.playerName.length === 0) return;
     this.nameSubmitted = true;
+    if (this._timeout) this._timeout.remove(); // cancel auto-return
 
     // Save to localStorage
     const scores = this.getScores();
