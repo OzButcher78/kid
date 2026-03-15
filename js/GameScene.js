@@ -674,6 +674,7 @@ class GameScene extends Phaser.Scene {
   handleEnemies() {
     this.enemies.getChildren().forEach(e => {
       if (!e.active) return;
+      if (e.stunned) { e.setVelocity(0, 0); return; }  // banana stun — fully frozen
       e.speedMult = e.speedMult || this.enemySpeedScale;
 
       // Boosted enemies get periodic speed surges
@@ -1414,15 +1415,24 @@ class GameScene extends Phaser.Scene {
     // Check overlap with enemies
     this.physics.add.overlap(bZone, this.enemies, (_z, enemy) => {
       if (!enemy.active) return;
-      // Enemy slips! Stun for 1.5s
-      enemy.setVelocityX(enemy.body.velocity.x * 2);
-      enemy.setVelocityY(-200);
-      this.showFloat(enemy.x, enemy.y - 30, 'AUSGERUTSCHT!', '#ffee00');
-      this.spawnParticles(enemy.x, enemy.y, 0xffee00, 5);
+      // Enemy slips! Freeze for 3 seconds — turn green, fully stuck
+      enemy.setVelocity(0, 0);
+      enemy.body.setAllowGravity(false);
+      enemy.setTint(0x00ff00);
+      enemy.stunned = true;
+      this.showFloat(enemy.x, enemy.y - 30, 'AUSGERUTSCHT!', '#ffee00', true);
+      this.spawnParticles(enemy.x, enemy.y, 0xffee00, 8);
       this['snd-stomp']?.play();
       const origSpeed = enemy.speedMult;
       enemy.speedMult = 0;
-      this.time.delayedCall(1500, () => { if (enemy?.active) enemy.speedMult = origSpeed; });
+      this.time.delayedCall(3000, () => {
+        if (enemy?.active) {
+          enemy.speedMult = origSpeed;
+          enemy.clearTint();
+          enemy.body.setAllowGravity(true);
+          enemy.stunned = false;
+        }
+      });
       banana.destroy();
       bZone.destroy();
     });
