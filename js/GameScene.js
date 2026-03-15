@@ -1418,7 +1418,7 @@ class GameScene extends Phaser.Scene {
       // Enemy slips! Freeze for 3 seconds — turn green, fully stuck
       enemy.setVelocity(0, 0);
       enemy.body.setAllowGravity(false);
-      enemy.setTint(0x00ff00);
+      enemy.setTint(0x88ccff);
       enemy.stunned = true;
       this.showFloat(enemy.x, enemy.y - 30, 'AUSGERUTSCHT!', '#ffee00', true);
       this.spawnParticles(enemy.x, enemy.y, 0xffee00, 8);
