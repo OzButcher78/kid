@@ -13,6 +13,15 @@ class GameScene extends Phaser.Scene {
     this.hasApple     = false;
     this.appleCount   = 0;
     this.playerApples = [];
+    this.hasRainbow   = false;
+    this.hasTeleport  = false;
+    this.teleportCount = 0;
+    this.isMini       = false;
+    this.hasBanana    = false;
+    this.bananaCount  = 0;
+    this.hasRocket    = false;
+    this.hasDash      = false;
+    this.isDashing    = false;
     this.isHurt       = false;
     this.jumpCount    = 0;
     this.gameOver     = false;
@@ -481,6 +490,7 @@ class GameScene extends Phaser.Scene {
     this.handlePlayer();
     this.handleEnemies();
     this.checkProjectiles();
+    this.handlePowerupEffects();
 
     // Draw shield ring around player
     if (this.shieldGfx) {
@@ -563,9 +573,15 @@ class GameScene extends Phaser.Scene {
     }
 
     const shootPressed = Phaser.Input.Keyboard.JustDown(this.spaceKey) || Phaser.Input.Keyboard.JustDown(this.qKey) || TOUCH_INPUT.shoot;
-    TOUCH_INPUT.shoot = false;  // consume one-shot
-    if (shootPressed && this.hasApple && this.appleCount > 0) {
-      this.throwPlayerApple();
+    TOUCH_INPUT.shoot = false;
+    if (shootPressed) {
+      if (this.hasDash && !this.isDashing) {
+        this.executeDash();
+      } else if (this.hasBanana && this.bananaCount > 0) {
+        this.throwBanana();
+      } else if (this.hasApple && this.appleCount > 0) {
+        this.throwPlayerApple();
+      }
     }
   }
 
@@ -591,10 +607,26 @@ class GameScene extends Phaser.Scene {
     apple.dirX  = dirX;
     apple.isActive = true;
     apple.isPlayerApple = true;
+    apple.isTeleport = this.hasTeleport && this.teleportCount > 0;
+    if (apple.isTeleport) {
+      this.teleportCount--;
+      apple.setTint(0xaa00ff); // purple tint for teleport apple
+      if (this.teleportCount <= 0) this.hasTeleport = false;
+    }
     this.playerApples.push(apple);
-    // BUG-005: use dedicated throw sound
     if (this['snd-throw']) this['snd-throw'].play(); else SFX.throw();
-    this.time.delayedCall(2500, () => this.destroyProjectile(apple));
+    this.time.delayedCall(2500, () => {
+      // Teleport apple: player teleports to apple's position when it expires or hits
+      if (apple.isTeleport && apple.isActive && this.player?.active) {
+        this.spawnParticles(this.player.x, this.player.y, 0xaa00ff, 6);
+        this.player.setPosition(apple.x, apple.y - 20);
+        this.player.setVelocity(0, 0);
+        this.spawnParticles(apple.x, apple.y, 0xaa00ff, 6);
+        this.showFloat(apple.x, apple.y - 40, 'TELEPORT!', '#aa00ff');
+        this.cameras.main.flash(150, 170, 0, 255);
+      }
+      this.destroyProjectile(apple);
+    });
   }
 
   checkPlayerApples() {
@@ -983,22 +1015,17 @@ class GameScene extends Phaser.Scene {
   }
 
   spawnBoxes(H) {
-    const boxDefs = [
-      [340,  H-209, 1, 'heart'  ],
-      [600,  H-284, 2, 'speed'  ],
-      [860,  H-229, 2, 'apple'  ],
-      [1150, H-309, 3, 'shield' ],
-      [1400, H-254, 1, 'apple'  ],
-      [1910, H-274, 1, 'speed'  ],
-      [2210, H-394, 2, 'heart'  ],
-      [2470, H-307, 2, 'shield' ],
-      [2970, H-347, 3, 'apple'  ],
-      [3260, H-291, 1, 'shield' ],
-      [3760, H-302, 3, 'speed'  ],
-      [4290, H-342, 1, 'apple'  ],
-      [4790, H-397, 3, 'heart'  ],
+    // All possible rewards — randomized each game
+    const allRewards = ['shield','speed','heart','apple','rainbow','teleport','mini','banana','rocket','dash'];
+    const boxPositions = [
+      [340,  H-209, 1], [600,  H-284, 2], [860,  H-229, 2],
+      [1150, H-309, 3], [1400, H-254, 1], [1910, H-274, 1],
+      [2210, H-394, 2], [2470, H-307, 2], [2970, H-347, 3],
+      [3260, H-291, 1], [3760, H-302, 3], [4290, H-342, 1],
+      [4790, H-397, 3],
     ];
-    boxDefs.forEach(([x, y, type, reward]) => {
+    boxPositions.forEach(([x, y, type]) => {
+      const reward = Phaser.Utils.Array.GetRandom(allRewards);
       const key = `box${type}`;
       const img = this.add.image(x, y, `${key}-idle`).setScale(2).setDepth(5).setOrigin(0.5, 1);
       this.physics.add.existing(img, true);
@@ -1134,6 +1161,51 @@ class GameScene extends Phaser.Scene {
         this.events.emit('appleOn', 3);
         this.showFloat(x, y - 30, '3 ÄPFEL! [SPACE]', '#ff6600');
         break;
+      case 'rainbow':
+        this.hasRainbow = true;
+        this.showFloat(x, y - 30, 'REGENBOGEN!', '#ff00ff');
+        this.time.delayedCall(10000, () => { this.hasRainbow = false; });
+        break;
+      case 'teleport':
+        this.hasTeleport = true;
+        this.teleportCount = 2;
+        this.hasApple = true;
+        this.appleCount = 2;
+        this.events.emit('appleOn', 2);
+        this.showFloat(x, y - 30, 'TELEPORT-APFEL x2!', '#aa00ff');
+        break;
+      case 'mini':
+        this.isMini = true;
+        this.player.setScale(0.8);
+        this.player.body.setSize(14, 24);
+        this.player.body.setOffset(25, 24);
+        this.showFloat(x, y - 30, 'MINI-MODUS!', '#88ff88');
+        this.time.delayedCall(8000, () => {
+          this.isMini = false;
+          if (this.player?.active) {
+            this.player.setScale(1.5);
+            this.player.body.setSize(20, 32);
+            this.player.body.setOffset(22, 16);
+          }
+        });
+        break;
+      case 'banana':
+        this.hasBanana = true;
+        this.bananaCount = 3;
+        this.showFloat(x, y - 30, 'BANANEN x3!', '#ffee00');
+        break;
+      case 'rocket':
+        this.hasRocket = true;
+        this.showFloat(x, y - 30, 'RAKETENSTIEFEL!', '#ff4400');
+        this.time.delayedCall(6000, () => {
+          this.hasRocket = false;
+          if (this.player?.active) this.player.clearTint();
+        });
+        break;
+      case 'dash':
+        this.hasDash = true;
+        this.showFloat(x, y - 30, 'DASH BEREIT! [SPACE]', '#00ddff');
+        break;
     }
   }
 
@@ -1266,5 +1338,100 @@ class GameScene extends Phaser.Scene {
         onComplete: () => p.destroy()
       });
     }
+  }
+
+  // ── NEW POWER-UP MECHANICS ──────────────────────────────────
+
+  handlePowerupEffects() {
+    // Rainbow trail — spawn colorful particles while moving
+    if (this.hasRainbow && Math.abs(this.player.body.velocity.x) > 30) {
+      const colors = [0xff0000, 0xff8800, 0xffff00, 0x00ff00, 0x0088ff, 0x8800ff];
+      const c = colors[Math.floor(Math.random() * colors.length)];
+      const p = this.add.circle(this.player.x - this.player.body.velocity.x * 0.05,
+        this.player.y + 10, Phaser.Math.Between(3, 6), c).setDepth(8).setAlpha(0.8);
+      this.tweens.add({ targets: p, alpha: 0, scaleX: 0.1, scaleY: 0.1,
+        duration: 400, onComplete: () => p.destroy() });
+    }
+
+    // Rocket boots — slow fall / hover
+    if (this.hasRocket && !this.player.body.blocked.down) {
+      if (this.player.body.velocity.y > 0) {
+        this.player.body.velocity.y *= 0.85; // slow fall dramatically
+      }
+      this.player.setTint(0xff6600);
+      // Flame particles under feet
+      if (Math.random() < 0.4) {
+        const flame = this.add.circle(
+          this.player.x + Phaser.Math.Between(-8, 8),
+          this.player.y + 25, Phaser.Math.Between(3, 6),
+          Phaser.Utils.Array.GetRandom([0xff4400, 0xff8800, 0xffcc00])
+        ).setDepth(8);
+        this.tweens.add({ targets: flame, y: flame.y + 20, alpha: 0, scaleX: 0,
+          duration: 300, onComplete: () => flame.destroy() });
+      }
+    }
+
+    // Dash invulnerability visual
+    if (this.isDashing) {
+      this.player.setTint(0x00ddff);
+    }
+  }
+
+  throwBanana() {
+    this.bananaCount--;
+    if (this.bananaCount <= 0) this.hasBanana = false;
+    const dirX = this.player.flipX ? -1 : 1;
+    const bx = this.player.x + dirX * 20;
+    const by = this.player.y + 15;
+    // Place a banana on the ground that enemies slip on
+    const banana = this.add.circle(bx, by, 8, 0xffee00).setDepth(5);
+    const bZone = this.add.zone(bx, by, 24, 24).setOrigin(0.5);
+    this.physics.world.enable(bZone);
+    bZone.body.setAllowGravity(false);
+    this.showFloat(bx, by - 30, 'BANANE!', '#ffee00');
+    if (this['snd-throw']) this['snd-throw'].play(); else SFX.throw();
+    // Check overlap with enemies
+    this.physics.add.overlap(bZone, this.enemies, (_z, enemy) => {
+      if (!enemy.active) return;
+      // Enemy slips! Stun for 1.5s
+      enemy.setVelocityX(enemy.body.velocity.x * 2);
+      enemy.setVelocityY(-200);
+      this.showFloat(enemy.x, enemy.y - 30, 'AUSGERUTSCHT!', '#ffee00');
+      this.spawnParticles(enemy.x, enemy.y, 0xffee00, 5);
+      this['snd-stomp']?.play();
+      const origSpeed = enemy.speedMult;
+      enemy.speedMult = 0;
+      this.time.delayedCall(1500, () => { if (enemy?.active) enemy.speedMult = origSpeed; });
+      banana.destroy();
+      bZone.destroy();
+    });
+    // Banana disappears after 8s
+    this.time.delayedCall(8000, () => { banana?.destroy(); bZone?.destroy(); });
+  }
+
+  executeDash() {
+    this.isDashing = true;
+    this.hasDash = false;
+    const dirX = this.player.flipX ? -1 : 1;
+    this.player.setVelocityX(dirX * 600);
+    this.player.setVelocityY(-50);
+    this.showFloat(this.player.x, this.player.y - 40, 'DASH!', '#00ddff');
+    this['snd-jump']?.play();
+    // Brief invulnerability during dash
+    this.isHurt = true;
+    // Dash particles
+    for (let i = 0; i < 8; i++) {
+      this.time.delayedCall(i * 40, () => {
+        if (!this.player?.active) return;
+        const p = this.add.circle(this.player.x, this.player.y, 5, 0x00ddff).setDepth(8).setAlpha(0.7);
+        this.tweens.add({ targets: p, alpha: 0, scaleX: 3, scaleY: 0.3,
+          duration: 300, onComplete: () => p.destroy() });
+      });
+    }
+    this.time.delayedCall(350, () => {
+      this.isDashing = false;
+      this.isHurt = false;
+      if (this.player?.active) this.player.clearTint();
+    });
   }
 }
