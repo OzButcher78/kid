@@ -535,9 +535,17 @@ class GameScene extends Phaser.Scene {
         e.direction = dir;
         if (!e.attacking) this.setEnemyAnim(e, e.chasing ? 'e-run' : 'e-walk');
 
-        if (distY < -80 && e.body.blocked.down && e.jumpCooldown === 0) {
-          e.setVelocityY(-380);
-          e.jumpCooldown = 120;
+        // Smart jumping: higher jump, shorter cooldown, scales with level
+        const jumpPower = -420 - (this.level - 1) * 15;  // stronger each level
+        const jumpCD    = Math.max(40, 80 - this.level * 5);  // faster cooldown each level
+        if (distY < -50 && e.body.blocked.down && e.jumpCooldown === 0) {
+          e.setVelocityY(jumpPower);
+          e.jumpCooldown = jumpCD;
+        }
+        // Also jump over walls while chasing
+        if ((e.body.blocked.left || e.body.blocked.right) && e.body.blocked.down && e.jumpCooldown === 0) {
+          e.setVelocityY(jumpPower);
+          e.jumpCooldown = jumpCD;
         }
       } else {
         e.setVelocityX(e.direction * 38 * e.speedMult);
@@ -546,9 +554,15 @@ class GameScene extends Phaser.Scene {
         if (e.x <= e.patrolStart) e.direction =  1;
         if (e.x >= e.patrolEnd)   e.direction = -1;
 
+        // Patrol jumping: hop over obstacles and onto nearby platforms
         if ((e.body.blocked.left || e.body.blocked.right) && e.body.blocked.down && e.jumpCooldown === 0) {
-          e.setVelocityY(-380);
-          e.jumpCooldown = 90;
+          e.setVelocityY(-400);
+          e.jumpCooldown = 70;
+        }
+        // Randomly jump to explore higher platforms (chance increases with level)
+        if (e.body.blocked.down && e.jumpCooldown === 0 && Math.random() < 0.004 * this.level) {
+          e.setVelocityY(-420);
+          e.jumpCooldown = 120;
         }
       }
 

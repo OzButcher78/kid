@@ -13,9 +13,17 @@ class StoryScene extends Phaser.Scene {
     this.add.tileSprite(0, 0, W, H, 'bgsheet', 0).setOrigin(0).setAlpha(0.4);
     this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.6);
 
-    // No skip button, no input — fully automatic like classic arcades
     this.step = -1;
     this.stepObjects = [];
+
+    // Skip hint + skip on any input
+    const skipHint = this.add.text(W / 2, H - 16, 'Drücke eine Taste zum Überspringen', {
+      fontSize: '11px', fill: '#666666', fontFamily: '"Nunito", sans-serif', fontWeight: '700'
+    }).setOrigin(0.5).setDepth(50);
+    this.tweens.add({ targets: skipHint, alpha: 0.3, duration: 900, yoyo: true, repeat: -1 });
+
+    this.input.once('pointerdown', () => this.startGame());
+    this.input.keyboard.once('keydown', () => this.startGame());
 
     // Start the sequence
     this.showNextStep();
