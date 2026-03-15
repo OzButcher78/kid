@@ -1393,7 +1393,7 @@ class GameScene extends Phaser.Scene {
     const bx = this.player.x + dirX * 20;
     const by = this.player.y + 15;
     // Place a banana on the ground that enemies slip on
-    const banana = this.add.circle(bx, by, 8, 0xffee00).setDepth(5);
+    const banana = this.add.sprite(bx, by, 'fruit-bananas', 0).setScale(1.2).setDepth(5);
     const bZone = this.add.zone(bx, by, 24, 24).setOrigin(0.5);
     this.physics.world.enable(bZone);
     bZone.body.setAllowGravity(false);
