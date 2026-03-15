@@ -63,8 +63,8 @@ class GameScene extends Phaser.Scene {
     // BUG-001 fix: setSize(30,40) so body bottom = texture row 48, matching feet at row 47
     this.player = this.physics.add.sprite(120, H - 56, 'p-idle-0');
     this.player.setScale(1.5).setCollideWorldBounds(true).setDepth(10);
-    this.player.body.setSize(30, 40);
-    this.player.body.setOffset(17, 8);
+    this.player.body.setSize(20, 32);    // narrower body (no air-standing), shorter (no early head bump)
+    this.player.body.setOffset(22, 16); // centered horizontally, starts below head
     this.setPlayerAnim('p-idle');
 
     // Shield ring visual — programmatic rotating ring
@@ -422,8 +422,8 @@ class GameScene extends Phaser.Scene {
       if (key === 'enemy2') e.setTint(0xffbbcc);
     }
 
-    e.body.setSize(30, 40);
-    e.body.setOffset(17, 8);
+    e.body.setSize(20, 32);
+    e.body.setOffset(22, 16);
     this.setEnemyAnim(e, 'e-walk');
     this.enemies.add(e);
     return e;
