@@ -16,14 +16,17 @@ class StoryScene extends Phaser.Scene {
     this.step = -1;
     this.stepObjects = [];
 
-    // Skip hint + skip on any input
-    const skipHint = this.add.text(W / 2, H - 16, 'Drücke eine Taste zum Überspringen', {
-      fontSize: '11px', fill: '#666666', fontFamily: '"Nunito", sans-serif', fontWeight: '700'
+    // Skip hint + skip on spacebar, any key, or tap
+    const skipHint = this.add.text(W / 2, H - 16, 'LEERTASTE drücken zum Überspringen', {
+      fontSize: '13px', fill: '#888888', fontFamily: '"Nunito", sans-serif', fontWeight: '700',
+      stroke: '#000', strokeThickness: 2
     }).setOrigin(0.5).setDepth(50);
-    this.tweens.add({ targets: skipHint, alpha: 0.3, duration: 900, yoyo: true, repeat: -1 });
+    this.tweens.add({ targets: skipHint, alpha: 0.4, duration: 800, yoyo: true, repeat: -1 });
 
-    this.input.once('pointerdown', () => this.startGame());
-    this.input.keyboard.once('keydown', () => this.startGame());
+    this._skipped = false;
+    const doSkip = () => { if (!this._skipped) { this._skipped = true; this.startGame(); } };
+    this.input.on('pointerdown', doSkip);
+    this.input.keyboard.on('keydown', doSkip);
 
     // Start the sequence
     this.showNextStep();

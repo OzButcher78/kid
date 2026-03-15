@@ -225,8 +225,8 @@ class GameScene extends Phaser.Scene {
 
   // Build navigation graph once after level is created
   buildNavGraph() {
-    const maxJumpH  = 150;  // max jump height in pixels
-    const maxJumpDx = 200;  // max horizontal distance coverable during a jump
+    const maxJumpH  = 200;  // max jump height in pixels (generous for multi-hop routes)
+    const maxJumpDx = 300;  // max horizontal distance coverable during a jump arc
     const plats = this.platData;
 
     // For each platform, find which other platforms are reachable
@@ -654,8 +654,8 @@ class GameScene extends Phaser.Scene {
       if (e.chasing) {
         const baseSpeed = e.enemyType === 'enemy1' ? 75 : 90;
         const speed = baseSpeed * e.speedMult;
-        const jumpPower = -420 - (this.level - 1) * 15;
-        const jumpCD    = Math.max(40, 80 - this.level * 5);
+        const jumpPower = -480 - (this.level - 1) * 15;  // stronger base jump to reach high platforms
+        const jumpCD    = Math.max(30, 60 - this.level * 5);  // shorter cooldown
 
         const onGround = e.body.blocked.down;
         const samePlatform = Math.abs(distY) < 40;
@@ -684,34 +684,36 @@ class GameScene extends Phaser.Scene {
           const nav = e._navTarget;
           if (nav) {
             const dx = nav.x - e.x;
-            const atWaypoint = Math.abs(dx) < 30;
+            const atWaypoint = Math.abs(dx) < 40;
             const dir = dx > 0 ? 1 : -1;
 
-            e.setVelocityX(dir * speed * 1.15);
+            // Run toward waypoint at boosted speed
+            e.setVelocityX(dir * speed * 1.25);
             e.setFlipX(dir < 0);
             e.direction = dir;
             if (!e.attacking) this.setEnemyAnim(e, 'e-run');
 
-            // At waypoint: jump if nav says so
+            // At waypoint: jump if nav says so — maintain horizontal speed during jump
             if (atWaypoint && nav.jump && onGround && e.jumpCooldown === 0) {
               e.setVelocityY(jumpPower);
+              // Keep horizontal momentum toward the target platform
+              e.setVelocityX(nav.dir * speed * 1.5);
               e.jumpCooldown = jumpCD;
-              e._navTimer = 0; // recalculate immediately after landing
+              e._navTimer = 5; // recalculate soon after landing
             }
             // Jump over walls blocking our path
             if ((e.body.blocked.left || e.body.blocked.right) && onGround && e.jumpCooldown === 0) {
               e.setVelocityY(jumpPower);
               e.jumpCooldown = jumpCD;
-              e._navTimer = 0;
+              e._navTimer = 5;
             }
           } else {
-            // No path / fallback: run toward player directly
+            // No path / fallback: run toward player, jump if player above
             const dir = distX > 0 ? 1 : -1;
             e.setVelocityX(dir * speed);
             e.setFlipX(dir < 0);
             e.direction = dir;
             if (!e.attacking) this.setEnemyAnim(e, 'e-run');
-            // Try to jump if stuck
             if (distY < -50 && onGround && e.jumpCooldown === 0) {
               e.setVelocityY(jumpPower);
               e.jumpCooldown = jumpCD;
@@ -727,8 +729,8 @@ class GameScene extends Phaser.Scene {
 
         // Patrol jumping: hop over obstacles and onto nearby platforms
         if ((e.body.blocked.left || e.body.blocked.right) && e.body.blocked.down && e.jumpCooldown === 0) {
-          e.setVelocityY(-400);
-          e.jumpCooldown = 70;
+          e.setVelocityY(-480);
+          e.jumpCooldown = 50;
         }
         // Randomly jump to explore higher platforms (chance increases with level)
         if (e.body.blocked.down && e.jumpCooldown === 0 && Math.random() < 0.004 * this.level) {
