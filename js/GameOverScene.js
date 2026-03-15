@@ -41,25 +41,50 @@ class GameOverScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     if (IS_TOUCH) {
-      // Mobile: real DOM input so virtual keyboard activates
-      this.nameText = this.add.text(W / 2, 175, '', { fontSize: '1px' }).setOrigin(0.5).setAlpha(0);
+      // Mobile: real DOM input overlaid on canvas so virtual keyboard activates
+      this.nameText = this.add.text(W / 2, 175, 'Tippe hier ↓', {
+        fontSize: '14px', fill: '#888888', fontFamily: '"Nunito", sans-serif', fontWeight: '700'
+      }).setOrigin(0.5);
+
       this.domInput = document.createElement('input');
       this.domInput.type = 'text';
       this.domInput.maxLength = 10;
       this.domInput.placeholder = 'Dein Name...';
       this.domInput.autocomplete = 'off';
+      this.domInput.autocapitalize = 'words';
+      this.domInput.enterkeyhint = 'done';
       this.domInput.style.cssText =
-        'position:absolute;z-index:1000;font-size:18px;font-family:"Nunito",sans-serif;' +
-        'text-align:center;width:200px;padding:8px;border:2px solid #ffd700;' +
-        'background:#222244;color:#fff;border-radius:8px;outline:none;';
+        'position:fixed;z-index:10000;font-size:20px;font-family:"Nunito",sans-serif;font-weight:700;' +
+        'text-align:center;width:220px;padding:12px 10px;border:3px solid #ffd700;' +
+        'background:#222244;color:#fff;border-radius:10px;outline:none;' +
+        'touch-action:auto;-webkit-user-select:text;user-select:text;' +
+        'left:50%;transform:translateX(-50%);';
       document.body.appendChild(this.domInput);
       this.positionDomInput();
+
+      // Auto-focus after a short delay (iOS needs this)
+      this.time.delayedCall(500, () => {
+        if (this.domInput) this.domInput.focus();
+      });
+
+      // Submit on Enter/Done key from virtual keyboard
+      this.domInput.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter') {
+          this.domInput.blur();
+          this.playerName = this.domInput.value.slice(0, 10);
+          if (this.playerName.length > 0) this.submitScore();
+        }
+      });
+
       this._resizeHandler = () => this.positionDomInput();
       window.addEventListener('resize', this._resizeHandler);
-      // Cleanup on scene shutdown
+      // Also reposition when virtual keyboard opens/closes (iOS fires resize)
+      window.visualViewport?.addEventListener('resize', this._resizeHandler);
+
       this.events.on('shutdown', () => {
         if (this.domInput) { this.domInput.remove(); this.domInput = null; }
         window.removeEventListener('resize', this._resizeHandler);
+        window.visualViewport?.removeEventListener('resize', this._resizeHandler);
       });
     } else {
       // Desktop: Phaser text-based input
@@ -107,12 +132,13 @@ class GameOverScene extends Phaser.Scene {
   positionDomInput() {
     if (!this.domInput) return;
     const rect = this.game.canvas.getBoundingClientRect();
-    const scaleX = rect.width / GAME_W;
     const scaleY = rect.height / GAME_H;
-    this.domInput.style.left = (rect.left + (GAME_W / 2) * scaleX - 100 * scaleX) + 'px';
-    this.domInput.style.top  = (rect.top + 165 * scaleY) + 'px';
-    this.domInput.style.width = (200 * scaleX) + 'px';
-    this.domInput.style.fontSize = (18 * scaleY) + 'px';
+    // Position at ~30% from top of canvas, centered horizontally
+    const topPos = rect.top + 165 * scaleY;
+    // Clamp to visible viewport (important when iOS keyboard is open)
+    const vvH = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    const maxTop = vvH - 60;
+    this.domInput.style.top = Math.min(topPos, maxTop) + 'px';
   }
 
   submitScore() {
