@@ -30,7 +30,7 @@ class GameScene extends Phaser.Scene {
     this.wasOnGround  = true;
     this.groundFrames = 0;
     this.respawnX     = 120;
-    this.respawnY     = GAME_H - 56;
+    this.respawnY     = GAME_H - 72;
 
     // Difficulty scaling per level
     this.enemySpeedScale  = 1 + (this.level - 1) * 0.18;   // +18% per level
@@ -70,7 +70,7 @@ class GameScene extends Phaser.Scene {
 
     // ── PLAYER ───────────────────────────────────────────────────
     // BUG-001 fix: setSize(30,40) so body bottom = texture row 48, matching feet at row 47
-    this.player = this.physics.add.sprite(120, H - 56, 'p-idle-0');
+    this.player = this.physics.add.sprite(120, H - 72, 'p-idle-0');
     this.player.setScale(1.5).setCollideWorldBounds(true).setDepth(10);
     this.player.body.setSize(20, 32);    // narrower body (no air-standing), shorter (no early head bump)
     this.player.body.setOffset(22, 16); // centered horizontally, starts below head
@@ -101,8 +101,8 @@ class GameScene extends Phaser.Scene {
     this.collTriggers = this.physics.add.staticGroup();
 
     // ── GOAL ─────────────────────────────────────────────────────
-    this.endSprite = this.add.image(W - 155, H - 32, 'end-idle').setScale(2).setDepth(5).setOrigin(0.5, 1);
-    this.goalZone = this.add.zone(W - 155, H - 80, 80, 100).setOrigin(0.5);
+    this.endSprite = this.add.image(W - 155, H - 48, 'end-idle').setScale(2).setDepth(5).setOrigin(0.5, 1);
+    this.goalZone = this.add.zone(W - 155, H - 96, 80, 100).setOrigin(0.5);
     this.physics.world.enable(this.goalZone);
     this.goalZone.body.setAllowGravity(false);
 
@@ -217,7 +217,7 @@ class GameScene extends Phaser.Scene {
       });
     };
 
-    addPlat(W / 2, H - 16, W, 32, 0x3e2723);
+    addPlat(W / 2, H - 24, W, 48, 0x3e2723);  // thicker ground (48px) to prevent fall-through
 
     [
       [340,  H-110, 180], [600,  H-185, 150], [860,  H-130, 200],
@@ -368,12 +368,12 @@ class GameScene extends Phaser.Scene {
   spawnEnemies(H) {
     // BUG-001 fix: spawn Y recalculated for body bottom at texture row 48
     // body.bottom = sprite.y + 24 → sprite.y = ground_top - 24
-    // Ground top = H - 32 → spawn_y = H - 56
+    // Ground top = H - 48 → spawn_y = H - 72
     [
-      [500,  H-56,  'enemy1', 150],  // ground
+      [500,  H-72,  'enemy1', 150],  // ground
       [860,  H-164, 'enemy2',  85],  // platform H-130 (top H-140)
       [1660, H-282, 'enemy1',  70],  // platform H-248 (top H-258)
-      [2500, H-56,  'enemy2', 150],  // ground
+      [2500, H-72,  'enemy2', 150],  // ground
       [3260, H-226, 'enemy1',  85],  // platform H-192 (top H-202)
       [4540, H-212, 'enemy2',  80],  // platform H-178 (top H-188)
     ].forEach(([x, y, key, patrol], idx) => {
@@ -523,6 +523,18 @@ class GameScene extends Phaser.Scene {
     }
     this.checkPlayerApples();
 
+    // Cap max fall speed to prevent tunneling through platforms
+    if (this.player.body.velocity.y > 600) this.player.body.velocity.y = 600;
+
+    // Fall-through safety net: if player is below ground surface, push them up
+    const groundTop = GAME_H - 48;   // top of the brown ground platform (48px thick)
+    const bodyBot   = this.player.body.bottom;
+    if (bodyBot > groundTop + 4 && this.player.y < GAME_H + 50) {
+      // Player clipped through ground — snap back onto it
+      this.player.y = groundTop - (bodyBot - this.player.y) + 1;
+      this.player.body.velocity.y = 0;
+      this.player.body.blocked.down = true;
+    }
     if (this.player.y > GAME_H + 100) {
       this.takeDamage();
       this.player.setPosition(this.respawnX, this.respawnY);
@@ -1000,7 +1012,7 @@ class GameScene extends Phaser.Scene {
     const px = this.player.x;
     const offset = Phaser.Math.Between(800, 1200) * (Math.random() < 0.5 ? -1 : 1);
     const spawnX = Phaser.Math.Clamp(px + offset, 60, LEVEL_W - 60);
-    const spawnY = H - 56;
+    const spawnY = H - 72;
     const key    = deadEnemy.enemyType;
     const patrol = 100;
 
@@ -1042,7 +1054,7 @@ class GameScene extends Phaser.Scene {
 
   spawnCheckpoints(H) {
     [1300, 2600, 3900].forEach((x, i) => {
-      const y = H - 32;
+      const y = H - 48;
       const img = this.add.image(x, y, 'cp-noflag').setScale(2).setDepth(5).setOrigin(0.5, 1);
       const zone = this.add.zone(x, y - 32, 64, 80).setOrigin(0.5, 1);
       this.physics.world.enable(zone);
@@ -1051,7 +1063,7 @@ class GameScene extends Phaser.Scene {
       zone.cpActivated = false;
       zone.cpIndex    = i;
       zone.respawnX   = x;
-      zone.respawnY   = H - 56;   // BUG-001 fix
+      zone.respawnY   = H - 72;   // BUG-001 fix
       this.physics.add.overlap(this.player, zone, this.onCheckpoint, null, this);
     });
   }

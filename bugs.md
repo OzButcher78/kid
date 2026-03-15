@@ -14,6 +14,7 @@ This is a learning-by-doing project. This file tracks known issues, reported bug
   - [BUG-003: Music too loud, SFX barely audible](#bug-003-music-too-loud-sfx-barely-audible)
   - [BUG-004: Apple throw UI looks poor](#bug-004-apple-throw-ui-looks-poor)
   - [BUG-005: Shooting/throwing uses wrong sound](#bug-005-shootingthrowing-uses-wrong-sound)
+  - [BUG-007: Player falls through ground](#bug-007-player-falls-through-ground)
 
 ---
 
@@ -149,3 +150,32 @@ Both enemy fruit throws and player apple throws used `Woosh_2.ogg` (snd-shoe). U
 - Removed old `snd-shoe` references
 
 **Files changed:** `js/GameScene.js` (audio loading, throwFruit, throwPlayerApple, onBoxHit)
+
+---
+
+### BUG-007: Player falls through ground
+
+| Field | Detail |
+|---|---|
+| **Status** | FIXED |
+| **Reported** | 2026-03-15 |
+| **Category** | Physics / Collision |
+
+**Description:**
+Player occasionally falls through the ground platform and keeps falling infinitely.
+
+**Root cause analysis:**
+Multiple contributing factors:
+1. Ground platform was only 32px thick — thin enough for fast-falling bodies to tunnel through in a single physics step
+2. Rocket boots power-up reduces fall velocity with `*= 0.85` each frame, creating edge cases near platform boundaries
+3. No max fall velocity cap, allowing tunneling at high speeds
+4. The existing fall detection (y > GAME_H + 100) only triggered respawn AFTER the player was already far below screen
+
+**Fix applied:**
+1. Increased ground platform thickness from 32px to 48px for larger collision surface
+2. Added max fall velocity cap of 600px/s to prevent tunneling
+3. Added per-frame safety net: if player body bottom exceeds ground top, snap back onto ground surface
+4. Updated all spawn/respawn Y positions to match new ground height (H-72 instead of H-56)
+5. Updated checkpoint, trophy, and goal zone positions
+
+**Files changed:** `js/GameScene.js` (buildLevel, update, spawn positions, checkpoint/trophy positions)
