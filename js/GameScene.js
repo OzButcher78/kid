@@ -292,46 +292,58 @@ class GameScene extends Phaser.Scene {
   }
 
   // Get the next waypoint for an enemy chasing the player
-  // Returns: { x, dir, jump } or null
+  // Returns: { x, jumpDir, jump } or null
+  // jumpDir = the direction to FACE and MOVE during the jump (toward next platform)
   getNavWaypoint(enemyX, enemyY, targetPlat) {
     if (!targetPlat) return null;
 
     const ePlatform = this.findPlatformAt(enemyX, enemyY);
     if (!ePlatform) return null;
-    if (ePlatform === targetPlat) return null; // already there
+    if (ePlatform === targetPlat) return null;
 
     const path = this.findPlatPath(ePlatform, targetPlat);
     if (!path || path.length === 0) {
-      // No path found — run toward player as fallback
-      return { x: targetPlat.x, dir: targetPlat.x > enemyX ? 1 : -1, jump: false };
+      return { x: targetPlat.x, dir: targetPlat.x > enemyX ? 1 : -1, jump: false, jumpDir: 0 };
     }
 
-    // Take the FIRST step in the path
     const step = path[0];
     const next = step.to;
+    const cur  = ePlatform;
 
     if (step.type === 'jump') {
-      // Need to jump up to next platform
-      // Calculate best X position to jump from: aim for the closest edge of the target
+      // Direction toward the next platform's center
+      const jumpDir = next.x > cur.x ? 1 : -1;
+
+      // Check if platforms overlap horizontally
+      const overlapL = Math.max(cur.left, next.left);
+      const overlapR = Math.min(cur.right, next.right);
+      const hasOverlap = overlapR > overlapL;
+
       let jumpX;
-      if (enemyX < next.left) {
-        // Enemy is left of target — run right, toward target's left edge
-        jumpX = Phaser.Math.Clamp(next.left - 15, ePlatform.left + 10, ePlatform.right - 10);
-      } else if (enemyX > next.right) {
-        // Enemy is right of target — run left
-        jumpX = Phaser.Math.Clamp(next.right + 15, ePlatform.left + 10, ePlatform.right - 10);
-      } else {
-        // Overlapping horizontally — jump from center of overlap
-        const overlapL = Math.max(ePlatform.left, next.left);
-        const overlapR = Math.min(ePlatform.right, next.right);
+      if (hasOverlap) {
+        // Platforms overlap — jump from center of overlap zone (straight up works)
         jumpX = (overlapL + overlapR) / 2;
+      } else {
+        // NO overlap — must run to the edge and jump across
+        // Launch from the edge of current platform closest to the next platform
+        if (jumpDir > 0) {
+          jumpX = cur.right - 15; // right edge
+        } else {
+          jumpX = cur.left + 15;  // left edge
+        }
       }
-      return { x: jumpX, dir: jumpX > enemyX ? 1 : -1, jump: true };
+
+      return {
+        x: jumpX,
+        dir: jumpX > enemyX ? 1 : (jumpX < enemyX ? -1 : jumpDir),
+        jump: true,
+        jumpDir: jumpDir, // direction to move DURING the jump
+      };
     } else {
-      // Drop down — run off the edge of current platform toward the next one
+      // Drop down — run off the edge toward the next platform
       const dropDir = next.x > enemyX ? 1 : -1;
-      const edgeX = dropDir > 0 ? ePlatform.right + 20 : ePlatform.left - 20;
-      return { x: edgeX, dir: dropDir, jump: false };
+      const edgeX = dropDir > 0 ? cur.right + 20 : cur.left - 20;
+      return { x: edgeX, dir: dropDir, jump: false, jumpDir: dropDir };
     }
   }
 
@@ -693,13 +705,15 @@ class GameScene extends Phaser.Scene {
             e.direction = dir;
             if (!e.attacking) this.setEnemyAnim(e, 'e-run');
 
-            // At waypoint: jump if nav says so — maintain horizontal speed during jump
+            // At waypoint: jump and launch TOWARD the next platform
             if (atWaypoint && nav.jump && onGround && e.jumpCooldown === 0) {
               e.setVelocityY(jumpPower);
-              // Keep horizontal momentum toward the target platform
-              e.setVelocityX(nav.dir * speed * 1.5);
+              // Horizontal launch toward the next platform (not toward waypoint)
+              const launchDir = nav.jumpDir || nav.dir;
+              e.setVelocityX(launchDir * speed * 1.8);
+              e.setFlipX(launchDir < 0);
               e.jumpCooldown = jumpCD;
-              e._navTimer = 5; // recalculate soon after landing
+              e._navTimer = 5;
             }
             // Jump over walls blocking our path
             if ((e.body.blocked.left || e.body.blocked.right) && onGround && e.jumpCooldown === 0) {

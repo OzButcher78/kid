@@ -12,6 +12,13 @@ class MenuScene extends Phaser.Scene {
     this.input.once('pointerdown', () => this.startMusic());
     this.input.keyboard.once('keydown', () => this.startMusic());
 
+    // Spacebar starts the game
+    this.input.keyboard.on('keydown-SPACE', () => {
+      this.startMusic();
+      this.cameras.main.fadeOut(400, 0, 0, 0);
+      this.time.delayedCall(400, () => this.scene.start('Story'));
+    });
+
     // ── BACKGROUND ──────────────────────────────────────────────
     this.add.tileSprite(0, 0, W, H, 'bgsheet', 0).setOrigin(0).setAlpha(0.9);
     this.add.tileSprite(0, H - 216, W, 216, 'bgsheet', 2).setOrigin(0).setAlpha(0.7);
