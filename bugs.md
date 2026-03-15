@@ -6,12 +6,40 @@ This is a learning-by-doing project. This file tracks known issues, reported bug
 
 ## Table of Contents
 
+- [Open Bugs](#open-bugs)
+  - [BUG-006: Enemies get stuck under platforms](#bug-006-enemies-get-stuck-under-platforms)
 - [Fixed Bugs](#fixed-bugs)
   - [BUG-001: Characters floating above ground](#bug-001-characters-floating-above-ground)
   - [BUG-002: Checkpoint shows multiple flags](#bug-002-checkpoint-shows-multiple-flags)
   - [BUG-003: Music too loud, SFX barely audible](#bug-003-music-too-loud-sfx-barely-audible)
   - [BUG-004: Apple throw UI looks poor](#bug-004-apple-throw-ui-looks-poor)
   - [BUG-005: Shooting/throwing uses wrong sound](#bug-005-shootingthrowing-uses-wrong-sound)
+
+---
+
+## Open Bugs
+
+### BUG-006: Enemies get stuck under platforms
+
+| Field | Detail |
+|---|---|
+| **Status** | IN PROGRESS (attempt #7) |
+| **Reported** | 2026-03-15 |
+| **Category** | Enemy AI / Pathfinding |
+
+**Description:**
+Enemies attempting to reach the player on a higher platform get stuck in a loop — jumping, falling, repeating without making progress.
+
+**Root causes found and fixed so far:**
+
+1. **Nav graph too generous** (maxJumpH=200 but physics only allows ~154px) — BFS found impossible paths. **Fixed**: calculate limits from actual physics.
+2. **Y distance restriction** (canChase required distYAbs<120) — enemies never entered chase mode for high platforms. **Fixed**: removed Y restriction.
+3. **Jumping into platform bottoms** — enemies jumped from directly under solid platforms, hit the bottom, bounced back. **Fixed**: approach from the side (50px past edge).
+4. **samePlatform false positive** — enemies on adjacent platforms at similar height were told to "run directly" instead of pathfinding across gaps. **Fixed**: check actual platform object identity.
+5. **No failure recovery** — enemies retried the same failed approach indefinitely. **Fixed**: track _jumpAttempts, switch sides after 2 failures.
+6. **Insufficient side-switching distance** — enemies don't move far enough away before re-attempting. **IN PROGRESS**: need escalating retreat distance on repeated failures + randomized approach routes.
+
+**Lesson learned:** Enemy pathfinding requires: (a) nav graph limits matching real physics, (b) solid platform awareness, (c) actual platform identity checks, (d) failure escalation with diverse retry strategies.
 
 ---
 

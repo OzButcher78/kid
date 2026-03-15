@@ -703,11 +703,35 @@ class GameScene extends Phaser.Scene {
             e.jumpCooldown = jumpCD;
           }
         } else {
-          // ── DIFFERENT LEVEL: BFS pathfinding through platform graph ──
+          // ── DIFFERENT PLATFORM: BFS pathfinding with escalating failure recovery ──
 
-          // Track jump attempts — if we keep failing, try the other side
-          if (!e._jumpAttempts) e._jumpAttempts = 0;
-          if (!e._preferSide) e._preferSide = 0; // 0=auto, 1=force left, 2=force right
+          // Init tracking state
+          if (e._totalFails == null) e._totalFails = 0;
+          if (!e._preferSide)  e._preferSide = 0;   // 0=auto, 1=left, 2=right
+          if (!e._retreating)  e._retreating = false;
+          if (!e._retreatTarget) e._retreatTarget = 0;
+
+          // RETREAT MODE: after multiple failures, run far away before re-attempting
+          if (e._retreating) {
+            const dx = e._retreatTarget - e.x;
+            if (Math.abs(dx) < 30) {
+              // Reached retreat point — try jumping from here
+              e._retreating = false;
+              e._navTimer = 0;
+            } else {
+              const dir = dx > 0 ? 1 : -1;
+              e.setVelocityX(dir * speed * 1.5);
+              e.setFlipX(dir < 0);
+              e.direction = dir;
+              if (!e.attacking) this.setEnemyAnim(e, 'e-run');
+              // Jump over walls during retreat
+              if ((e.body.blocked.left || e.body.blocked.right) && e.jumpCooldown === 0) {
+                e.setVelocityY(jumpPower);
+                e.jumpCooldown = jumpCD;
+              }
+              return; // skip normal nav while retreating
+            }
+          }
 
           if (!e._navTimer) e._navTimer = 0;
           e._navTimer--;
@@ -734,27 +758,46 @@ class GameScene extends Phaser.Scene {
               e.setVelocityX(launchDir * speed * 2.5);
               e.setFlipX(launchDir < 0);
               e.jumpCooldown = jumpCD;
-              e._jumpAttempts++;
-              // After 2 failed attempts from one side, try the other
-              if (e._jumpAttempts >= 2) {
-                e._preferSide = (e._preferSide === 1) ? 2 : 1;
-                e._jumpAttempts = 0;
-              }
-              // Check after landing if we made it
-              this.time.delayedCall(800, () => {
+              e._navTimer = 8;
+
+              // Check after landing if we made progress
+              this.time.delayedCall(900, () => {
                 if (!e?.active) return;
                 const ePlat = this.findPlatformAt(e.x, e.y);
                 const tPlat = this.findPlatformAt(this.player.x, this.player.y);
                 if (ePlat && tPlat && ePlat !== tPlat && ePlat.top >= (tPlat?.top || 0)) {
-                  // Still below target — force recalculate
+                  // FAILED — still below target
+                  e._totalFails++;
                   e._navTimer = 0;
+
+                  if (e._totalFails <= 2) {
+                    // Attempt 1-2: switch sides (left ↔ right)
+                    e._preferSide = (e._preferSide === 1) ? 2 : 1;
+                  } else if (e._totalFails <= 4) {
+                    // Attempt 3-4: retreat 150-250px in a random direction, then retry
+                    e._retreating = true;
+                    const retreatDir = Math.random() < 0.5 ? -1 : 1;
+                    const retreatDist = 150 + e._totalFails * 50;
+                    e._retreatTarget = Phaser.Math.Clamp(
+                      e.x + retreatDir * retreatDist, 50, LEVEL_W - 50
+                    );
+                    e._preferSide = Phaser.Math.Between(0, 2);
+                  } else {
+                    // Attempt 5+: big random retreat (300-500px), fully random approach
+                    e._retreating = true;
+                    const retreatDir = Math.random() < 0.5 ? -1 : 1;
+                    e._retreatTarget = Phaser.Math.Clamp(
+                      e.x + retreatDir * Phaser.Math.Between(300, 500), 50, LEVEL_W - 50
+                    );
+                    e._preferSide = Phaser.Math.Between(0, 2);
+                    e._totalFails = 0; // reset after big retreat
+                  }
                 } else {
-                  // Made progress — reset attempts
-                  e._jumpAttempts = 0;
+                  // SUCCESS — made progress, reset everything
+                  e._totalFails = 0;
                   e._preferSide = 0;
                 }
               });
-              e._navTimer = 8;
             }
             // Jump over walls
             if ((e.body.blocked.left || e.body.blocked.right) && onGround && e.jumpCooldown === 0) {
@@ -763,7 +806,7 @@ class GameScene extends Phaser.Scene {
               e._navTimer = 0;
             }
           } else {
-            // No path / fallback: run toward player
+            // No path found — run toward player as fallback
             const dir = distX > 0 ? 1 : -1;
             e.setVelocityX(dir * speed);
             e.setFlipX(dir < 0);
