@@ -27,10 +27,12 @@ class HUDScene extends Phaser.Scene {
     this._lastAnimatedScore = 0;
 
     // ── CENTER-BOTTOM HEALTH BAR ──────────────────────────────────
-    const hbY = H - 28;
-    this.add.rectangle(CX, hbY, 120, 36, 0x000000, 0.5).setDepth(10);
+    const hbY = H - 24;
+    this.add.rectangle(CX, hbY, 120, 24, 0x000000, 0.5).setDepth(10);
     this.livesBar = this.add.image(CX, hbY, 'health-bar', this.livesToFrame(this.gs.lives))
       .setOrigin(0.5).setScale(2.2).setDepth(11);
+    // Crop to show only the top bar (green health), hiding the bottom bar (red)
+    this.livesBar.setCrop(0, 0, 48, 16);
 
     // ── ACTIVE POWER-UP INDICATOR (top-left) ──────────────────────
     this.activePowerBg = this.add.graphics().setVisible(false).setDepth(10);
