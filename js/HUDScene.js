@@ -33,8 +33,11 @@ class HUDScene extends Phaser.Scene {
     this.add.rectangle(CX, hbY, hbW + 8, hbH + 8, 0x000000, 0.5).setDepth(10);
     this.livesBarImg = this.add.image(CX, hbY, 'healthbar-bg')
       .setOrigin(0.5).setDisplaySize(hbW, hbH).setDepth(11);
-    this._hbFullW = this.livesBarImg.width;  // original texture width for crop calc
-    this._hbMaxLives = 5;
+    // Use texture frame dimensions (not display size) for crop calculations
+    const frame = this.livesBarImg.frame;
+    this._hbFullW = frame.width;
+    this._hbFullH = frame.height;
+    this._hbMaxLives = this.gs.lives;  // starting lives = full bar
     this.updateHealthBar(this.gs.lives);
 
     // ── ACTIVE POWER-UP INDICATOR (top-left) ──────────────────────
@@ -173,7 +176,7 @@ class HUDScene extends Phaser.Scene {
   updateHealthBar(lives) {
     const frac = Math.max(0, Math.min(lives, this._hbMaxLives)) / this._hbMaxLives;
     const cropW = Math.round(this._hbFullW * frac);
-    this.livesBarImg.setCrop(0, 0, cropW, this.livesBarImg.height);
+    this.livesBarImg.setCrop(0, 0, cropW, this._hbFullH);
   }
 
   updateAppleUI(count) {
