@@ -29,7 +29,9 @@ class MenuScene extends Phaser.Scene {
         .setScale(1.4).setAlpha(0.65);
     }
 
-    this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.42);
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.42);
+    overlay.fillRoundedRect(8, 8, W - 16, H - 16, 16);
 
     // ── CHARACTERS ──────────────────────────────────────────────
     this.add.sprite(200, H - 64, 'p-idle-0').setScale(1.5).play('p-idle');
@@ -99,48 +101,90 @@ class MenuScene extends Phaser.Scene {
   }
 
   createDesktopMenu(W, H) {
-    this.add.text(W / 2, 60, 'Kind vs Müttern', {
-      fontSize: '42px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
+    const txts = { // shared text styles
+      head: { fontSize: '18px', fill: '#ffd700', fontFamily: '"Bangers", cursive', stroke: '#000', strokeThickness: 3, letterSpacing: 1 },
+      item: { fontSize: '15px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800', stroke: '#000', strokeThickness: 2 },
+      key:  { fontSize: '15px', fill: '#aaddff', fontFamily: '"Nunito", sans-serif', fontWeight: '700', stroke: '#000', strokeThickness: 2 },
+    };
+
+    // ── TITLE ──────────────────────────────────────────────────
+    this.add.text(W / 2, 50, 'Kind vs Müttern', {
+      fontSize: '46px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
       stroke: '#5a0000', strokeThickness: 6, letterSpacing: 2
     }).setOrigin(0.5);
-    this.add.text(W / 2, 108, 'Entkommt die Müttern!', {
+    this.add.text(W / 2, 98, 'Entkommt die Müttern!', {
       fontSize: '16px', fill: '#ffcccc', fontFamily: '"Nunito", sans-serif', fontWeight: '700',
       stroke: '#000', strokeThickness: 2
     }).setOrigin(0.5);
-    this.add.text(W / 2, 138, 'von Noah B.', {
-      fontSize: '20px', fill: '#ffffff', fontFamily: '"Bangers", cursive',
+    this.add.text(W / 2, 122, 'von Noah B.', {
+      fontSize: '22px', fill: '#ffffff', fontFamily: '"Bangers", cursive',
       stroke: '#000000', strokeThickness: 3, letterSpacing: 1
     }).setOrigin(0.5);
 
-    this.add.rectangle(W / 2, 215, 500, 95, 0x000000, 0.5);
-    ['Pfeiltasten / WASD   Bewegen', '↑ / W   Springen (2x möglich)', 'LEERTASTE   Äpfel werfen']
-      .forEach((c, i) => this.add.text(W / 2, 186 + i * 27, c, {
-        fontSize: '15px', fill: '#aaddff', fontFamily: '"Nunito", sans-serif', fontWeight: '700',
-        stroke: '#000', strokeThickness: 1
-      }).setOrigin(0.5));
+    // ── LEFT PANEL: POWER-UPS ──────────────────────────────────
+    const panelG = this.add.graphics();
+    // Left panel
+    panelG.fillStyle(0x000000, 0.55);
+    panelG.fillRoundedRect(16, 150, 260, 260, 12);
+    panelG.lineStyle(1.5, 0xffd700, 0.4);
+    panelG.strokeRoundedRect(16, 150, 260, 260, 12);
+    // Right panel
+    panelG.fillStyle(0x000000, 0.55);
+    panelG.fillRoundedRect(W - 276, 150, 260, 260, 12);
+    panelG.lineStyle(1.5, 0xaaddff, 0.4);
+    panelG.strokeRoundedRect(W - 276, 150, 260, 260, 12);
 
-    this.add.text(W / 2, 290, 'POWER-UPS AUS KISTEN:', {
-      fontSize: '16px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
-      stroke: '#000', strokeThickness: 3, letterSpacing: 1
-    }).setOrigin(0.5);
-    this.add.rectangle(W / 2, 370, 540, 130, 0x000000, 0.55);
-    [['Schild', '3x Blocken'], ['Turbo', 'Schneller'], ['Äpfel', 'Werfen'],
-     ['Herz', '+1 Leben'], ['Regenbogen', 'Trail'],
-     ['Teleport', 'Apfel-Port'], ['Mini', 'Schrumpfen'], ['Banane', 'Ausrutschen'],
-     ['Rakete', 'Schweben'], ['Dash', 'Sprint']]
-      .forEach(([name, desc], i) => {
-        const c = i < 5 ? 0 : 1;
-        const row = i % 5;
-        const bx = W / 2 + (c === 0 ? -130 : 130);
-        this.add.text(bx, 316 + row * 22, `${name}: ${desc}`, {
-          fontSize: '14px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
-          stroke: '#000000', strokeThickness: 2
-        }).setOrigin(0.5);
-      });
+    this.add.text(146, 162, 'POWER-UPS', txts.head).setOrigin(0.5, 0);
 
-    const btn = this.add.text(W / 2, 462, ' SPIEL STARTEN ', {
-      fontSize: '22px', fill: '#ffffff', fontFamily: '"Bangers", cursive',
-      backgroundColor: '#8b1a1a', padding: { x: 18, y: 10 }, letterSpacing: 2
+    const powers = [
+      ['🛡️', 'Schild', '3x Blocken'],
+      ['⚡', 'Turbo', 'Schneller laufen'],
+      ['🍎', 'Äpfel', 'Werfen (Space)'],
+      ['❤️', 'Herz', '+1 Leben'],
+      ['🌈', 'Regenbogen', 'Bunter Trail'],
+      ['🔮', 'Teleport', 'Teleport-Apfel'],
+      ['🔹', 'Mini', 'Schrumpfen'],
+      ['🍌', 'Banane', 'Gegner einfrieren'],
+      ['🚀', 'Rakete', 'Langsam schweben'],
+      ['💨', 'Dash', 'Sprint-Angriff'],
+    ];
+    powers.forEach(([icon, name, desc], i) => {
+      const y = 190 + i * 22;
+      this.add.text(30, y, `${icon} ${name}`, txts.item).setOrigin(0, 0);
+      this.add.text(158, y, desc, { ...txts.item, fill: '#cccccc', fontSize: '13px' }).setOrigin(0, 0);
+    });
+
+    // ── RIGHT PANEL: CONTROLS ──────────────────────────────────
+    this.add.text(W - 146, 162, 'STEUERUNG', txts.head).setOrigin(0.5, 0);
+
+    const controls = [
+      ['← →', 'Bewegen'],
+      ['↑ / W', 'Springen'],
+      ['↑↑ / WW', 'Doppelsprung'],
+      ['SPACE', 'Äpfel werfen'],
+      ['SPACE', 'Banane werfen'],
+      ['SPACE', 'Dash ausführen'],
+      ['Q', 'Teleport-Apfel'],
+      ['', ''],
+      ['ESC', 'Pause'],
+    ];
+    controls.forEach(([key, action], i) => {
+      if (!key && !action) return;
+      const y = 190 + i * 24;
+      // Key badge
+      if (key) {
+        this.add.text(W - 262, y, key, {
+          fontSize: '13px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
+          backgroundColor: '#444466', padding: { x: 4, y: 2 }, stroke: '#000', strokeThickness: 1
+        }).setOrigin(0, 0);
+      }
+      this.add.text(W - 190, y, action, txts.key).setOrigin(0, 0);
+    });
+
+    // ── START BUTTON ───────────────────────────────────────────
+    const btn = this.add.text(W / 2, 468, ' SPIEL STARTEN ', {
+      fontSize: '24px', fill: '#ffffff', fontFamily: '"Bangers", cursive',
+      backgroundColor: '#8b1a1a', padding: { x: 22, y: 10 }, letterSpacing: 2
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     btn.on('pointerover', () => btn.setStyle({ fill: '#ffd700' }));
     btn.on('pointerout',  () => btn.setStyle({ fill: '#ffffff' }));
@@ -150,5 +194,11 @@ class MenuScene extends Phaser.Scene {
       this.time.delayedCall(400, () => this.scene.start('Story'));
     });
     this.tweens.add({ targets: btn, alpha: 0.75, duration: 700, yoyo: true, repeat: -1 });
+
+    // Spacebar hint
+    this.add.text(W / 2, 500, 'oder LEERTASTE drücken', {
+      fontSize: '12px', fill: '#888888', fontFamily: '"Nunito", sans-serif', fontWeight: '700',
+      stroke: '#000', strokeThickness: 1
+    }).setOrigin(0.5);
   }
 }
