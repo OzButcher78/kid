@@ -205,27 +205,12 @@ class GameScene extends Phaser.Scene {
     // Store platform metadata for enemy navigation
     this.platData = [];
 
-    const addPlat = (x, y, w, h = 20, col = 0x4a7c44) => {
-      // Draw tiled platform using Allpieces.png
-      const tileW = 96;  // width of one platform tile segment
-      const tileH = 32;  // height of one platform tile segment
-      const segments = Math.max(1, Math.round(w / tileW));
-      const segW = w / segments;
+    const addPlat = (x, y, w, h = 20) => {
+      // Tile the platform with the grass-topped piece from Allpieces.png
+      this.add.image(x, y, 'tiles', 'plat-wide')
+        .setDisplaySize(w, 24).setDepth(4);
 
-      for (let i = 0; i < segments; i++) {
-        const sx = x - w / 2 + segW * i + segW / 2;
-        let frameKey;
-        if (segments === 1) frameKey = 'plat-mid';
-        else if (i === 0) frameKey = 'plat-left';
-        else if (i === segments - 1) frameKey = 'plat-right';
-        else frameKey = 'plat-mid';
-
-        this.add.image(sx, y, 'tiles', frameKey)
-          .setDisplaySize(segW, h <= 22 ? tileH : h)
-          .setDepth(4);
-      }
-
-      // Invisible physics body (same as before)
+      // Invisible physics body
       const r = this.add.rectangle(x, y, w, h).setVisible(false);
       this.physics.add.existing(r, true);
       this.platforms.add(r);
@@ -237,14 +222,12 @@ class GameScene extends Phaser.Scene {
       });
     };
 
-    // Ground — use brown fill (tiles don't tile well for full-width ground)
+    // Ground — brown fill + tiled grass top
     gfx.fillStyle(0x3e2723);
     gfx.fillRect(0, H - 48, W, 48);
-    // Ground grass top using platform tiles
-    const groundSegments = Math.ceil(W / 96);
-    for (let i = 0; i < groundSegments; i++) {
-      this.add.image(i * 96 + 48, H - 48, 'tiles', 'plat-mid')
-        .setDisplaySize(96, 20).setOrigin(0.5, 0).setDepth(4);
+    for (let gx = 0; gx < W; gx += 288) {
+      this.add.image(gx + 144, H - 48, 'tiles', 'plat-wide')
+        .setDisplaySize(290, 18).setOrigin(0.5, 0.5).setDepth(4);
     }
     // Ground physics
     const gr = this.add.rectangle(W / 2, H - 24, W, 48).setVisible(false);
@@ -263,42 +246,15 @@ class GameScene extends Phaser.Scene {
       [2910, H-363,  90], [3660, H-415,  90], [4460, H-385,  90],
     ].forEach(([x, y, w]) => addPlat(x, y, w));
 
-    // ── DECORATIONS ──────────────────────────────────────────────
-    // Tree stumps on some platforms
-    const stumpPositions = [400, 900, 1800, 2600, 3400, 4200, 4900];
-    stumpPositions.forEach(sx => {
-      this.add.image(sx, H - 48, 'tiles', 'stump-1')
-        .setDisplaySize(40, 40).setOrigin(0.5, 1).setDepth(3).setAlpha(0.9);
+    // ── DECORATIONS (sparse, ground only) ────────────────────────
+    [200, 750, 1500, 2300, 3050, 3800, 4700].forEach((bx, i) => {
+      this.add.image(bx, H - 48, 'tiles', i % 2 === 0 ? 'bush-sm' : 'bush-lg')
+        .setDisplaySize(i % 2 === 0 ? 26 : 34, i % 2 === 0 ? 22 : 30)
+        .setOrigin(0.5, 1).setDepth(3).setAlpha(0.8);
     });
-
-    // Bushes scattered on ground
-    const bushPositions = [150, 550, 1050, 1550, 2100, 2800, 3100, 3600, 4100, 4600, 5050];
-    bushPositions.forEach((bx, i) => {
-      const frame = i % 2 === 0 ? 'bush-1' : 'bush-2';
-      const size = i % 2 === 0 ? 28 : 36;
-      this.add.image(bx, H - 48, 'tiles', frame)
-        .setDisplaySize(size, size).setOrigin(0.5, 1).setDepth(3).setAlpha(0.85);
-    });
-
-    // Mushrooms
-    [250, 1300, 2350, 3300, 4500].forEach((mx, i) => {
-      const frame = i % 2 === 0 ? 'mushroom-s' : 'mushroom-l';
-      const sz = i % 2 === 0 ? 18 : 26;
-      this.add.image(mx, H - 48, 'tiles', frame)
-        .setDisplaySize(sz, sz).setOrigin(0.5, 1).setDepth(3).setAlpha(0.8);
-    });
-
-    // Grass tufts
-    for (let gx = 80; gx < W; gx += Phaser.Math.Between(200, 400)) {
-      this.add.image(gx + Phaser.Math.Between(-30, 30), H - 48, 'tiles', 'grass-tuft')
-        .setDisplaySize(20, 16).setOrigin(0.5, 1).setDepth(3).setAlpha(0.7);
-    }
-
-    // Hanging ivy from some floating platforms
-    const ivyPlatforms = [[600, H-185], [1660, H-248], [2970, H-248], [4290, H-243]];
-    ivyPlatforms.forEach(([ix, iy]) => {
-      this.add.image(ix, iy + 10, 'tiles', 'ivy')
-        .setDisplaySize(30, 50).setOrigin(0.5, 0).setDepth(3).setAlpha(0.7);
+    [500, 1900, 3400, 4400].forEach(mx => {
+      this.add.image(mx, H - 48, 'tiles', 'mush')
+        .setDisplaySize(20, 20).setOrigin(0.5, 1).setDepth(3).setAlpha(0.75);
     });
   }
 

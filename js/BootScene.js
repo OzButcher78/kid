@@ -114,25 +114,14 @@ class BootScene extends Phaser.Scene {
       this.anims.create({ key: 'shield-ring', frames: this.anims.generateFrameNumbers('shield-ring', { start: 0, end: 4 }), frameRate: 8, repeat: -1 });
 
       // ── TILE FRAMES from Allpieces.png (512x512) ────────────────
+      // Only using the cleanest grass-topped platform strip
       const t = this.textures.get('tiles');
-      // Platform tiles (grass-topped)
-      t.add('plat-left',    0, 0,   224, 192, 32);    // left end
-      t.add('plat-mid',     0, 96,  224, 192, 32);    // middle
-      t.add('plat-right',   0, 192, 224, 192, 32);    // right end
-      t.add('plat-long-l',  0, 0,   256, 288, 32);    // long left
-      t.add('plat-long-m',  0, 96,  256, 288, 32);    // long mid
-      t.add('plat-long-r',  0, 192, 256, 288, 32);    // long right
-      // Tree stumps
-      t.add('stump-1',      0, 320, 224, 64, 64);     // small stump
-      t.add('stump-2',      0, 384, 224, 64, 64);     // medium stump
-      t.add('stump-3',      0, 448, 224, 64, 64);     // large stump
-      // Decorative elements (bottom area of sheet)
-      t.add('bush-1',       0, 352, 416, 32, 32);     // small bush
-      t.add('bush-2',       0, 384, 416, 48, 40);     // medium bush
-      t.add('ivy',          0, 320, 384, 64, 80);      // hanging ivy
-      t.add('mushroom-s',   0, 464, 416, 24, 24);     // small mushroom
-      t.add('mushroom-l',   0, 448, 448, 32, 40);     // large mushroom
-      t.add('grass-tuft',   0, 336, 416, 24, 24);     // grass tuft
+      // Long grass platform (2nd row, clean wide piece): x=0, y=256, 288x32
+      t.add('plat-wide',  0, 0, 256, 288, 32);
+      // Decorations from bottom of sheet
+      t.add('bush-sm',    0, 352, 432, 32, 32);
+      t.add('bush-lg',    0, 384, 432, 48, 40);
+      t.add('mush',       0, 464, 448, 32, 32);
 
       this.scene.start('Menu');
     } catch(err) {
