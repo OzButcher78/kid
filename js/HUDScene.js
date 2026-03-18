@@ -38,13 +38,29 @@ class HUDScene extends Phaser.Scene {
     this._hbMaxLives = this.gs.lives;
     this.updateHealthBar(this.gs.lives);
 
-    // Single bonus pip indicator (3 dots) — right of health bar
+    // Bonus pips (3 dots) — right of health bar
     this.bonusPips = this.add.graphics().setDepth(12);
-    this._bonusCount = 0;
-    this._bonusMax = 3;
     this._pipX = CX + hbW / 2 + 20;
     this._pipY = hbY;
     this.drawBonusPips(0);
+
+    // Selected item name — big yellow text, right side of bottom bar
+    this.selectedTxt = this.add.text(CX + hbW / 2 + 70, hbY, '', {
+      fontSize: '16px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
+      stroke: '#000', strokeThickness: 3, letterSpacing: 1
+    }).setOrigin(0, 0.5).setDepth(12);
+
+    // Collected items list — left side of bottom bar, same style
+    this.collectedTxt = this.add.text(CX - hbW / 2 - 10, hbY, '', {
+      fontSize: '16px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
+      stroke: '#000', strokeThickness: 3, letterSpacing: 1
+    }).setOrigin(1, 0.5).setDepth(12);
+
+    // Switch hint
+    this.switchHint = this.add.text(CX + hbW / 2 + 70, hbY + 14, '↓ wechseln', {
+      fontSize: '9px', fill: '#aaaaaa', fontFamily: '"Nunito", sans-serif', fontWeight: '700',
+      stroke: '#000', strokeThickness: 1
+    }).setOrigin(0, 0.5).setDepth(12).setVisible(false);
 
     // ── ACTIVE POWER-UP INDICATOR (top-left) ──────────────────────
     this.activePowerBg = this.add.graphics().setVisible(false).setDepth(10);
@@ -106,15 +122,26 @@ class HUDScene extends Phaser.Scene {
       this.powerTimerGfx.clear();
     });
 
-    // Unified bonus pip events — all consumables update the same 3-pip display
-    this.gs.events.on('appleOn',     n => this.drawBonusPips(n));
-    this.gs.events.on('appleCount',  n => this.drawBonusPips(n));
-    this.gs.events.on('appleOff',   () => this.drawBonusPips(0));
-    this.gs.events.on('bananaOn',    n => this.drawBonusPips(n));
-    this.gs.events.on('bananaCount', n => this.drawBonusPips(n));
-    this.gs.events.on('bananaOff',  () => this.drawBonusPips(0));
-    this.gs.events.on('dashOn',     () => this.drawBonusPips(1));
-    this.gs.events.on('dashOff',    () => this.drawBonusPips(0));
+    // Item inventory update — shows selected item + pips + collected list
+    this.gs.events.on('itemUpdate', (data) => {
+      // Pips show count of selected item
+      this.drawBonusPips(data.count);
+      // Selected item name (right of pips)
+      if (data.label) {
+        this.selectedTxt.setText(data.label + ' x' + data.count);
+        this.switchHint.setVisible(data.slots.length > 1);
+      } else {
+        this.selectedTxt.setText('');
+        this.switchHint.setVisible(false);
+      }
+      // Collected items list (left of health bar)
+      const labels = { apple: 'ÄPFEL', banana: 'BANANE', dash: 'DASH', teleport: 'TELEPORT' };
+      const list = data.slots.map((s, i) => {
+        const name = labels[s.type] || s.type.toUpperCase();
+        return i === data.selected ? `▶${name}` : name;
+      });
+      this.collectedTxt.setText(list.join('  '));
+    });
 
     // Score update loop with milestone animation
     this.time.addEvent({
@@ -149,9 +176,7 @@ class HUDScene extends Phaser.Scene {
 
     this.events.on('shutdown', () => {
       ['livesChanged','activePower','activePowerOff','queueUpdate',
-       'shieldOn','shieldHit','shieldOff',
-       'appleOn','appleCount','appleOff',
-       'bananaOn','bananaCount','bananaOff','dashOn','dashOff']
+       'shieldOn','shieldHit','shieldOff','itemUpdate']
         .forEach(ev => this.gs.events.off(ev));
     });
   }

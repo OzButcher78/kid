@@ -25,6 +25,8 @@ class GameScene extends Phaser.Scene {
     this.isHurt       = false;
     this.powerQueue   = [];      // queued timed power-ups
     this.activePower  = null;    // currently active timed power-up name
+    this.itemSlots    = [];      // consumable inventory: [{type, count}]
+    this.selectedSlot = 0;       // index into itemSlots
     this.jumpCount    = 0;
     this.gameOver     = false;
     this.playerAnim   = '';
@@ -586,24 +588,46 @@ class GameScene extends Phaser.Scene {
       this.spawnParticles(this.player.x, this.player.y + 30, 0xffffff, 4);
     }
 
+    // DOWN arrow cycles between accumulated items
+    if (Phaser.Input.Keyboard.JustDown(this.cursors.down)) {
+      this.cycleItem();
+    }
+
     const shootPressed = Phaser.Input.Keyboard.JustDown(this.spaceKey) || TOUCH_INPUT.shoot;
     TOUCH_INPUT.shoot = false;
     if (shootPressed) {
-      if (this.hasDash && !this.isDashing) {
-        this.executeDash();
-      } else if (this.hasBanana && this.bananaCount > 0) {
-        this.throwBanana();
-      } else if (this.hasApple && this.appleCount > 0) {
-        this.throwPlayerApple();
+      const sel = this.getSelectedItem();
+      if (sel) {
+        switch (sel.type) {
+          case 'dash':
+            if (!this.isDashing) this.executeDash();
+            break;
+          case 'banana':
+            if (this.bananaCount > 0) this.throwBanana();
+            break;
+          case 'apple':
+            if (this.appleCount > 0) this.throwPlayerApple();
+            break;
+          case 'teleport':
+            if (this.appleCount > 0) this.throwPlayerApple();
+            break;
+        }
       }
     }
   }
 
   throwPlayerApple() {
     this.appleCount--;
+    if (this.hasTeleport && this.teleportCount > 0) {
+      this.teleportCount--;
+      this.updateItemCount('teleport', this.teleportCount);
+    } else {
+      this.updateItemCount('apple', this.appleCount);
+    }
     this.events.emit('appleCount', this.appleCount);
     if (this.appleCount <= 0) {
       this.hasApple = false;
+      this.hasTeleport = false;
       this.events.emit('appleOff');
     }
     const dirX = this.player.flipX ? -1 : 1;
@@ -1182,17 +1206,17 @@ class GameScene extends Phaser.Scene {
         this.lives = Math.min(this.lives + 1, 5);
         this.events.emit('livesChanged', this.lives);
         this.showFloat(x, y - 30, '+1 LEBEN!', '#ff3366', true);
-        break;
+        return; // heart doesn't go in inventory
       case 'apple':
         this.hasApple = true;
         this.appleCount = 3;
-        this.events.emit('appleOn', 3);
-        this.showFloat(x, y - 30, '3 ÄPFEL! [SPACE]', '#ff6600', true);
+        this.addItem('apple', 3);
+        this.showFloat(x, y - 30, '3 ÄPFEL!', '#ff6600', true);
         break;
       case 'banana':
         this.hasBanana = true;
         this.bananaCount = 3;
-        this.events.emit('bananaOn', 3);
+        this.addItem('banana', 3);
         this.showFloat(x, y - 30, 'BANANEN x3!', '#ffee00', true);
         break;
       case 'teleport':
@@ -1200,13 +1224,13 @@ class GameScene extends Phaser.Scene {
         this.teleportCount = 2;
         this.hasApple = true;
         this.appleCount = 2;
-        this.events.emit('appleOn', 2);
-        this.showFloat(x, y - 30, 'TELEPORT-APFEL x2!', '#aa00ff', true);
+        this.addItem('teleport', 2);
+        this.showFloat(x, y - 30, 'TELEPORT x2!', '#aa00ff', true);
         break;
       case 'dash':
         this.hasDash = true;
-        this.events.emit('dashOn');
-        this.showFloat(x, y - 30, 'DASH BEREIT! [SPACE]', '#00ddff', true);
+        this.addItem('dash', 1);
+        this.showFloat(x, y - 30, 'DASH BEREIT!', '#00ddff', true);
         break;
     }
   }
@@ -1479,6 +1503,7 @@ class GameScene extends Phaser.Scene {
 
   throwBanana() {
     this.bananaCount--;
+    this.updateItemCount('banana', this.bananaCount);
     this.events.emit('bananaCount', this.bananaCount);
     if (this.bananaCount <= 0) {
       this.hasBanana = false;
@@ -1522,9 +1547,65 @@ class GameScene extends Phaser.Scene {
     this.time.delayedCall(8000, () => { banana?.destroy(); bZone?.destroy(); });
   }
 
+  // ── ITEM INVENTORY ──────────────────────────────────────────
+  addItem(type, count) {
+    const existing = this.itemSlots.find(s => s.type === type);
+    if (existing) {
+      existing.count = count;
+    } else {
+      this.itemSlots.push({ type, count });
+    }
+    // Auto-select if first item
+    if (this.itemSlots.length === 1) this.selectedSlot = 0;
+    this.emitItemUpdate();
+  }
+
+  removeItem(type) {
+    this.itemSlots = this.itemSlots.filter(s => s.type !== type);
+    if (this.selectedSlot >= this.itemSlots.length) this.selectedSlot = Math.max(0, this.itemSlots.length - 1);
+    this.emitItemUpdate();
+  }
+
+  updateItemCount(type, count) {
+    const slot = this.itemSlots.find(s => s.type === type);
+    if (slot) {
+      slot.count = count;
+      if (count <= 0) this.removeItem(type);
+      else this.emitItemUpdate();
+    }
+  }
+
+  cycleItem() {
+    if (this.itemSlots.length <= 1) return;
+    this.selectedSlot = (this.selectedSlot + 1) % this.itemSlots.length;
+    this.emitItemUpdate();
+    // Show float with selected item name
+    const sel = this.itemSlots[this.selectedSlot];
+    if (sel) {
+      const labels = { apple: 'ÄPFEL', banana: 'BANANE', dash: 'DASH', teleport: 'TELEPORT' };
+      this.showFloat(this.player.x, this.player.y - 50, labels[sel.type] || sel.type.toUpperCase(), '#ffd700');
+    }
+  }
+
+  getSelectedItem() {
+    return this.itemSlots[this.selectedSlot] || null;
+  }
+
+  emitItemUpdate() {
+    const sel = this.getSelectedItem();
+    const labels = { apple: 'ÄPFEL', banana: 'BANANE', dash: 'DASH', teleport: 'TELEPORT' };
+    this.events.emit('itemUpdate', {
+      slots: this.itemSlots,
+      selected: this.selectedSlot,
+      label: sel ? (labels[sel.type] || sel.type.toUpperCase()) : '',
+      count: sel ? sel.count : 0,
+    });
+  }
+
   executeDash() {
     this.isDashing = true;
     this.hasDash = false;
+    this.removeItem('dash');
     this.events.emit('dashOff');
     const dirX = this.player.flipX ? -1 : 1;
     this.player.setVelocityX(dirX * 600);
