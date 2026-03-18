@@ -53,6 +53,7 @@ class BootScene extends Phaser.Scene {
 
     this.load.spritesheet('bgsheet',   'assets/Background-sheet.png', { frameWidth: 384, frameHeight: 216 });
     this.load.spritesheet('pinetrees', 'assets/PineTrees.png',        { frameWidth: 128, frameHeight: 128 });
+    this.load.image('tiles', 'assets/Allpieces.png');
 
     // Boxes — three visual styles, each with Idle / Hit / Break frames
     ['Box1','Box2','Box3'].forEach((box, i) => {
@@ -111,6 +112,27 @@ class BootScene extends Phaser.Scene {
 
       // Shield ring animation
       this.anims.create({ key: 'shield-ring', frames: this.anims.generateFrameNumbers('shield-ring', { start: 0, end: 4 }), frameRate: 8, repeat: -1 });
+
+      // ── TILE FRAMES from Allpieces.png (512x512) ────────────────
+      const t = this.textures.get('tiles');
+      // Platform tiles (grass-topped)
+      t.add('plat-left',    0, 0,   224, 192, 32);    // left end
+      t.add('plat-mid',     0, 96,  224, 192, 32);    // middle
+      t.add('plat-right',   0, 192, 224, 192, 32);    // right end
+      t.add('plat-long-l',  0, 0,   256, 288, 32);    // long left
+      t.add('plat-long-m',  0, 96,  256, 288, 32);    // long mid
+      t.add('plat-long-r',  0, 192, 256, 288, 32);    // long right
+      // Tree stumps
+      t.add('stump-1',      0, 320, 224, 64, 64);     // small stump
+      t.add('stump-2',      0, 384, 224, 64, 64);     // medium stump
+      t.add('stump-3',      0, 448, 224, 64, 64);     // large stump
+      // Decorative elements (bottom area of sheet)
+      t.add('bush-1',       0, 352, 416, 32, 32);     // small bush
+      t.add('bush-2',       0, 384, 416, 48, 40);     // medium bush
+      t.add('ivy',          0, 320, 384, 64, 80);      // hanging ivy
+      t.add('mushroom-s',   0, 464, 416, 24, 24);     // small mushroom
+      t.add('mushroom-l',   0, 448, 448, 32, 40);     // large mushroom
+      t.add('grass-tuft',   0, 336, 416, 24, 24);     // grass tuft
 
       this.scene.start('Menu');
     } catch(err) {
