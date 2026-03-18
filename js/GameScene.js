@@ -170,7 +170,7 @@ class GameScene extends Phaser.Scene {
     this.aKey     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A);
     this.dKey     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D);
     this.wKey     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
-    this.qKey     = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
+    // Q key removed — everything uses SPACE now
 
     this.scene.launch('HUD', { gameScene: this, level: this.level });
     if (IS_TOUCH) this.scene.launch('TouchControls');
@@ -586,7 +586,7 @@ class GameScene extends Phaser.Scene {
       this.spawnParticles(this.player.x, this.player.y + 30, 0xffffff, 4);
     }
 
-    const shootPressed = Phaser.Input.Keyboard.JustDown(this.spaceKey) || Phaser.Input.Keyboard.JustDown(this.qKey) || TOUCH_INPUT.shoot;
+    const shootPressed = Phaser.Input.Keyboard.JustDown(this.spaceKey) || TOUCH_INPUT.shoot;
     TOUCH_INPUT.shoot = false;
     if (shootPressed) {
       if (this.hasDash && !this.isDashing) {
