@@ -56,65 +56,12 @@ class HUDScene extends Phaser.Scene {
       stroke: '#000', strokeThickness: 2
     }).setOrigin(0, 0.5).setDepth(12).setVisible(false);
 
-    // ── ACTIVE POWER-UP INDICATOR (top-left) ──────────────────────
-    this.activePowerBg = this.add.graphics().setVisible(false).setDepth(10);
-    this.activePowerBg.fillStyle(0x000000, 0.6);
-    this.activePowerBg.fillRoundedRect(-80, -16, 160, 32, 8);
-    this.activePowerBg.lineStyle(1.5, 0xffd700, 0.7);
-    this.activePowerBg.strokeRoundedRect(-80, -16, 160, 32, 8);
-    this.activePowerBg.setPosition(14 + 80, 60);
-
-    this.activePowerTxt = this.add.text(94, 60, '', {
-      fontSize: '14px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
-      stroke: '#000000', strokeThickness: 3
-    }).setOrigin(0.5).setVisible(false).setDepth(11);
-
-    // Timer bar for active power-up
-    this.powerTimerGfx = this.add.graphics().setDepth(11);
-    this.powerTimerStart = 0;
-    this.powerTimerDuration = 0;
-
-    // ── QUEUED POWER-UPS (small text below active) ───────────────
-    this.queueTxt = this.add.text(94, 84, '', {
-      fontSize: '11px', fill: '#aaaaaa', fontFamily: '"Nunito", sans-serif', fontWeight: '700',
-      stroke: '#000', strokeThickness: 2
-    }).setOrigin(0.5).setVisible(false).setDepth(11);
+    // (Active power-up and queue info removed — handled by bottom bar inventory)
 
     // ── EVENT LISTENERS ──────────────────────────────────────────
     this.gs.events.on('livesChanged', n => this.updateHealthBar(n));
 
-    this.gs.events.on('activePower', (name, duration) => {
-      this.activePowerTxt.setText(name).setVisible(true);
-      this.activePowerBg.setVisible(true);
-      this.powerTimerStart = this.time.now;
-      this.powerTimerDuration = duration;
-    });
-    this.gs.events.on('activePowerOff', () => {
-      this.activePowerTxt.setVisible(false);
-      this.activePowerBg.setVisible(false);
-      this.powerTimerDuration = 0;
-      this.powerTimerGfx.clear();
-    });
-    this.gs.events.on('queueUpdate', (names) => {
-      if (names.length > 0) {
-        this.queueTxt.setText('Nächste: ' + names.join(', ')).setVisible(true);
-      } else {
-        this.queueTxt.setVisible(false);
-      }
-    });
-
-    this.gs.events.on('shieldOn', n => {
-      this.activePowerTxt.setText('SCHILD x' + n).setVisible(true);
-      this.activePowerBg.setVisible(true);
-      this.powerTimerDuration = 0;
-      this.powerTimerGfx.clear();
-    });
-    this.gs.events.on('shieldHit', n => this.activePowerTxt.setText('SCHILD x' + n));
-    this.gs.events.on('shieldOff', () => {
-      this.activePowerTxt.setVisible(false);
-      this.activePowerBg.setVisible(false);
-      this.powerTimerGfx.clear();
-    });
+    // (activePower/queue/shield indicators removed — no top-left display)
 
     // Item inventory update — shows selected item + pips (left of health bar)
     this.gs.events.on('itemUpdate', (data) => {
@@ -142,26 +89,9 @@ class HUDScene extends Phaser.Scene {
       }
     });
 
-    // Power timer bar update
-    this.time.addEvent({
-      delay: 50, loop: true,
-      callback: () => {
-        if (this.powerTimerDuration <= 0) return;
-        const t = Math.max(0, 1 - (this.time.now - this.powerTimerStart) / this.powerTimerDuration);
-        const g = this.powerTimerGfx;
-        const bx = 14, by = 76, bw = 160, bh = 6;
-        g.clear();
-        g.fillStyle(0x000000, 0.4);
-        g.fillRoundedRect(bx, by, bw, bh, 3);
-        g.fillStyle(0x00ff88, 0.8);
-        g.fillRoundedRect(bx, by, bw * t, bh, 3);
-        if (t <= 0) { this.powerTimerDuration = 0; g.clear(); }
-      }
-    });
 
     this.events.on('shutdown', () => {
-      ['livesChanged','activePower','activePowerOff','queueUpdate',
-       'shieldOn','shieldHit','shieldOff','itemUpdate']
+      ['livesChanged','itemUpdate']
         .forEach(ev => this.gs.events.off(ev));
     });
   }
