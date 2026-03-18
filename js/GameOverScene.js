@@ -88,14 +88,21 @@ class GameOverScene extends Phaser.Scene {
       });
     } else {
       // Desktop: Phaser text-based input
+      // Disable Phaser keyboard capture so ALL keys reach our handler
+      this.input.keyboard.disableGlobalCapture();
+
       this.nameText = this.add.text(W / 2, 175, '|', {
         fontSize: '24px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
         backgroundColor: '#222244', padding: { x: 60, y: 6 }
       }).setOrigin(0.5);
       this.tweens.add({ targets: this.nameText, alpha: 0.7, duration: 500, yoyo: true, repeat: -1 });
-      this.input.keyboard.on('keydown', (event) => {
+
+      // Use raw DOM listener to bypass Phaser's key interception
+      this._nameKeyHandler = (event) => {
         if (this.nameSubmitted) return;
+        event.stopPropagation();
         if (event.key === 'Backspace') {
+          event.preventDefault();
           this.playerName = this.playerName.slice(0, -1);
         } else if (event.key === 'Enter' && this.playerName.length > 0) {
           this.submitScore();
@@ -104,6 +111,12 @@ class GameOverScene extends Phaser.Scene {
           this.playerName += event.key;
         }
         this.nameText.setText(this.playerName.length > 0 ? this.playerName : '|');
+      };
+      window.addEventListener('keydown', this._nameKeyHandler, true);
+
+      this.events.on('shutdown', () => {
+        window.removeEventListener('keydown', this._nameKeyHandler, true);
+        this.input.keyboard.enableGlobalCapture();
       });
     }
 
