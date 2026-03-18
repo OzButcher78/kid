@@ -97,12 +97,15 @@ class GameOverScene extends Phaser.Scene {
       }).setOrigin(0.5);
       this.tweens.add({ targets: this.nameText, alpha: 0.7, duration: 500, yoyo: true, repeat: -1 });
 
-      // Use raw DOM listener to bypass Phaser's key interception
+      // Fully disable Phaser keyboard during name input
+      this.input.keyboard.enabled = false;
+
+      // Use raw DOM listener to handle all key input ourselves
       this._nameKeyHandler = (event) => {
         if (this.nameSubmitted) return;
-        event.stopPropagation();
+        event.preventDefault();
+        event.stopImmediatePropagation();
         if (event.key === 'Backspace') {
-          event.preventDefault();
           this.playerName = this.playerName.slice(0, -1);
         } else if (event.key === 'Enter' && this.playerName.length > 0) {
           this.submitScore();
@@ -116,6 +119,7 @@ class GameOverScene extends Phaser.Scene {
 
       this.events.on('shutdown', () => {
         window.removeEventListener('keydown', this._nameKeyHandler, true);
+        this.input.keyboard.enabled = true;
         this.input.keyboard.enableGlobalCapture();
       });
     }
