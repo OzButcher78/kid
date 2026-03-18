@@ -44,17 +44,17 @@ class HUDScene extends Phaser.Scene {
     this._pipY = hbY;
     this.drawBonusPips(0);
 
-    // Selected item name — big yellow text, LEFT of health bar
-    this.selectedTxt = this.add.text(CX - hbW / 2 - 14, hbY, '', {
+    // Selected item name — big yellow text, RIGHT of pips
+    this.selectedTxt = this.add.text(CX + hbW / 2 + 70, hbY, '', {
       fontSize: '16px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
       stroke: '#000', strokeThickness: 3, letterSpacing: 1
-    }).setOrigin(1, 0.5).setDepth(12);
+    }).setOrigin(0, 0.5).setDepth(12);
 
-    // Switch hint — below selected text, bigger and brighter
-    this.switchHint = this.add.text(CX - hbW / 2 - 14, hbY + 14, '⬇ WECHSELN', {
+    // Switch hint — below selected text
+    this.switchHint = this.add.text(CX + hbW / 2 + 70, hbY + 14, '⬇ WECHSELN', {
       fontSize: '11px', fill: '#ffd700', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
       stroke: '#000', strokeThickness: 2
-    }).setOrigin(1, 0.5).setDepth(12).setVisible(false);
+    }).setOrigin(0, 0.5).setDepth(12).setVisible(false);
 
     // ── ACTIVE POWER-UP INDICATOR (top-left) ──────────────────────
     this.activePowerBg = this.add.graphics().setVisible(false).setDepth(10);
