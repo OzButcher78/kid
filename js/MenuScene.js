@@ -104,7 +104,8 @@ class MenuScene extends Phaser.Scene {
       stroke: '#5a0000', strokeThickness: 6, letterSpacing: 2
     }).setOrigin(0.5);
     this.add.text(W / 2, 108, 'Entkommt die Müttern!', {
-      fontSize: '16px', fill: '#ffcccc', fontFamily: '"Nunito", sans-serif', fontWeight: '700'
+      fontSize: '16px', fill: '#ffcccc', fontFamily: '"Nunito", sans-serif', fontWeight: '700',
+      stroke: '#000', strokeThickness: 2
     }).setOrigin(0.5);
     this.add.text(W / 2, 138, 'von Noah B.', {
       fontSize: '20px', fill: '#ffffff', fontFamily: '"Bangers", cursive',
@@ -114,7 +115,8 @@ class MenuScene extends Phaser.Scene {
     this.add.rectangle(W / 2, 215, 500, 95, 0x000000, 0.5);
     ['Pfeiltasten / WASD   Bewegen', '↑ / W   Springen (2x möglich)', 'LEERTASTE   Äpfel werfen']
       .forEach((c, i) => this.add.text(W / 2, 186 + i * 27, c, {
-        fontSize: '13px', fill: '#aaddff', fontFamily: '"Nunito", sans-serif', fontWeight: '700'
+        fontSize: '15px', fill: '#aaddff', fontFamily: '"Nunito", sans-serif', fontWeight: '700',
+        stroke: '#000', strokeThickness: 1
       }).setOrigin(0.5));
 
     this.add.text(W / 2, 290, 'POWER-UPS AUS KISTEN:', {
@@ -131,7 +133,7 @@ class MenuScene extends Phaser.Scene {
         const row = i % 5;
         const bx = W / 2 + (c === 0 ? -130 : 130);
         this.add.text(bx, 316 + row * 22, `${name}: ${desc}`, {
-          fontSize: '13px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
+          fontSize: '14px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
           stroke: '#000000', strokeThickness: 2
         }).setOrigin(0.5);
       });

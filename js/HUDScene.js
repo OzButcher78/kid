@@ -63,7 +63,7 @@ class HUDScene extends Phaser.Scene {
     appleBg.strokeRoundedRect(-80, -14, 160, 30, 8);
     this.appleContainer.add(appleBg);
     const spaceBadge = this.add.text(-68, -10, 'SPACE', {
-      fontSize: '10px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
+      fontSize: '12px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
       backgroundColor: '#cc5500', padding: { x: 3, y: 2 }
     });
     this.appleContainer.add(spaceBadge);

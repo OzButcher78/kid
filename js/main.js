@@ -3,6 +3,7 @@
 // ════════════════════════════════════
 new Phaser.Game({
   type: Phaser.AUTO,
+  pixelArt: true,
   width:  GAME_W,
   height: GAME_H,
   parent: 'game',
