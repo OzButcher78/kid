@@ -74,6 +74,7 @@ class BootScene extends Phaser.Scene {
     // UI assets
     this.load.spritesheet('shield-ring', 'assets/03.png', { frameWidth: 48, frameHeight: 36 });
     this.load.spritesheet('health-bar',  'assets/05.png', { frameWidth: 48, frameHeight: 32 });
+    this.load.image('healthbar-bg', 'assets/healthbar.jpg');
     this.load.spritesheet('bonus-bars',  'assets/06.png', { frameWidth: 128, frameHeight: 24 });
   }
 

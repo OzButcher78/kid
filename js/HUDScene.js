@@ -27,12 +27,15 @@ class HUDScene extends Phaser.Scene {
     this._lastAnimatedScore = 0;
 
     // ── CENTER-BOTTOM HEALTH BAR ──────────────────────────────────
-    const hbY = H - 24;
-    this.add.rectangle(CX, hbY, 120, 24, 0x000000, 0.5).setDepth(10);
-    this.livesBar = this.add.image(CX, hbY, 'health-bar', this.livesToFrame(this.gs.lives))
-      .setOrigin(0.5).setScale(2.2).setDepth(11);
-    // Crop to show only the top bar (green health), hiding the bottom bar (red)
-    this.livesBar.setCrop(0, 0, 48, 16);
+    // Health bar using healthbar.jpg — crop width based on lives
+    const hbY = H - 22;
+    const hbW = 160, hbH = 20;
+    this.add.rectangle(CX, hbY, hbW + 8, hbH + 8, 0x000000, 0.5).setDepth(10);
+    this.livesBarImg = this.add.image(CX, hbY, 'healthbar-bg')
+      .setOrigin(0.5).setDisplaySize(hbW, hbH).setDepth(11);
+    this._hbFullW = this.livesBarImg.width;  // original texture width for crop calc
+    this._hbMaxLives = 5;
+    this.updateHealthBar(this.gs.lives);
 
     // ── ACTIVE POWER-UP INDICATOR (top-left) ──────────────────────
     this.activePowerBg = this.add.graphics().setVisible(false).setDepth(10);
@@ -79,7 +82,7 @@ class HUDScene extends Phaser.Scene {
     }
 
     // ── EVENT LISTENERS ──────────────────────────────────────────
-    this.gs.events.on('livesChanged', n => this.livesBar.setFrame(this.livesToFrame(n)));
+    this.gs.events.on('livesChanged', n => this.updateHealthBar(n));
 
     this.gs.events.on('activePower', (name, duration) => {
       this.activePowerTxt.setText(name).setVisible(true);
@@ -167,8 +170,10 @@ class HUDScene extends Phaser.Scene {
     });
   }
 
-  livesToFrame(n) {
-    return Math.min(7, Math.max(0, Math.round((5 - Math.min(n, 5)) * 1.4)));
+  updateHealthBar(lives) {
+    const frac = Math.max(0, Math.min(lives, this._hbMaxLives)) / this._hbMaxLives;
+    const cropW = Math.round(this._hbFullW * frac);
+    this.livesBarImg.setCrop(0, 0, cropW, this.livesBarImg.height);
   }
 
   updateAppleUI(count) {
