@@ -44,23 +44,17 @@ class HUDScene extends Phaser.Scene {
     this._pipY = hbY;
     this.drawBonusPips(0);
 
-    // Selected item name — big yellow text, right side of bottom bar
-    this.selectedTxt = this.add.text(CX + hbW / 2 + 70, hbY, '', {
-      fontSize: '16px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
-      stroke: '#000', strokeThickness: 3, letterSpacing: 1
-    }).setOrigin(0, 0.5).setDepth(12);
-
-    // Collected items list — left side of bottom bar, same style
-    this.collectedTxt = this.add.text(CX - hbW / 2 - 10, hbY, '', {
+    // Selected item name — big yellow text, LEFT of health bar
+    this.selectedTxt = this.add.text(CX - hbW / 2 - 14, hbY, '', {
       fontSize: '16px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
       stroke: '#000', strokeThickness: 3, letterSpacing: 1
     }).setOrigin(1, 0.5).setDepth(12);
 
-    // Switch hint
-    this.switchHint = this.add.text(CX + hbW / 2 + 70, hbY + 14, '↓ wechseln', {
-      fontSize: '9px', fill: '#aaaaaa', fontFamily: '"Nunito", sans-serif', fontWeight: '700',
-      stroke: '#000', strokeThickness: 1
-    }).setOrigin(0, 0.5).setDepth(12).setVisible(false);
+    // Switch hint — below selected text, bigger and brighter
+    this.switchHint = this.add.text(CX - hbW / 2 - 14, hbY + 14, '⬇ WECHSELN', {
+      fontSize: '11px', fill: '#ffd700', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
+      stroke: '#000', strokeThickness: 2
+    }).setOrigin(1, 0.5).setDepth(12).setVisible(false);
 
     // ── ACTIVE POWER-UP INDICATOR (top-left) ──────────────────────
     this.activePowerBg = this.add.graphics().setVisible(false).setDepth(10);
@@ -122,25 +116,16 @@ class HUDScene extends Phaser.Scene {
       this.powerTimerGfx.clear();
     });
 
-    // Item inventory update — shows selected item + pips + collected list
+    // Item inventory update — shows selected item + pips (left of health bar)
     this.gs.events.on('itemUpdate', (data) => {
-      // Pips show count of selected item
       this.drawBonusPips(data.count);
-      // Selected item name (right of pips)
       if (data.label) {
-        this.selectedTxt.setText(data.label + ' x' + data.count);
+        this.selectedTxt.setText('▶ ' + data.label + ' x' + data.count);
         this.switchHint.setVisible(data.slots.length > 1);
       } else {
         this.selectedTxt.setText('');
         this.switchHint.setVisible(false);
       }
-      // Collected items list (left of health bar)
-      const labels = { apple: 'ÄPFEL', banana: 'BANANE', dash: 'DASH', teleport: 'TELEPORT' };
-      const list = data.slots.map((s, i) => {
-        const name = labels[s.type] || s.type.toUpperCase();
-        return i === data.selected ? `▶${name}` : name;
-      });
-      this.collectedTxt.setText(list.join('  '));
     });
 
     // Score update loop with milestone animation

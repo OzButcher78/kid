@@ -33,10 +33,9 @@ class MenuScene extends Phaser.Scene {
     overlay.fillStyle(0x000000, 0.42);
     overlay.fillRoundedRect(8, 8, W - 16, H - 16, 16);
 
-    // ── CHARACTERS ──────────────────────────────────────────────
-    this.add.sprite(200, H - 64, 'p-idle-0').setScale(1.5).play('p-idle');
-    const e1 = this.add.sprite(500, H - 58, 'e-walk-0').setScale(1.5).play('e-walk');
-    const e2 = this.add.sprite(630, H - 58, 'e-walk-0').setScale(1.5).play('e-walk').setTint(0xffbbcc);
+    // ── CHARACTERS (40% larger on title screen) ─────────────────
+    this.add.sprite(200, H - 74, 'p-idle-0').setScale(2.1).play('p-idle');
+    const e1 = this.add.sprite(580, H - 68, 'e-walk-0').setScale(2.1).play('e-walk');
     e1.setFlipX(true);
 
     if (IS_TOUCH) {
