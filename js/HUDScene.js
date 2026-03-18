@@ -64,25 +64,30 @@ class HUDScene extends Phaser.Scene {
       stroke: '#000', strokeThickness: 2
     }).setOrigin(0.5).setVisible(false).setDepth(11);
 
-    // ── APPLE COUNT (bottom-right, always visible when > 0) ───────
-    this.appleContainer = this.add.container(W - 80, H - 28).setVisible(false).setDepth(10);
-    const appleBg = this.add.graphics();
-    appleBg.fillStyle(0x000000, 0.6);
-    appleBg.fillRoundedRect(-50, -14, 100, 28, 8);
-    appleBg.lineStyle(1.5, 0xff6600, 0.8);
-    appleBg.strokeRoundedRect(-50, -14, 100, 28, 8);
-    this.appleContainer.add(appleBg);
-    const spaceBadge = this.add.text(-42, -9, 'SPACE', {
-      fontSize: '10px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
-      backgroundColor: '#cc5500', padding: { x: 2, y: 1 }
-    });
-    this.appleContainer.add(spaceBadge);
-    this.appleIcons = [];
-    for (let i = 0; i < 3; i++) {
-      const icon = this.add.sprite(10 + i * 22, 0, 'fruit-apple', 0).setScale(0.9);
-      this.appleIcons.push(icon);
-      this.appleContainer.add(icon);
-    }
+    // ── ITEM INDICATORS (next to health bar, using bonus-bars spritesheet) ──
+    // bonus-bars: 128x24 frames. Rows of dot/bar indicators.
+    // We use frames from the dot-style rows: frame 18=empty(0), 19=1dot, 20=2dots, 21=3dots
+    const indY = hbY;
+    const indScale = 0.7;
+
+    // Apple indicator (right of health bar)
+    this.appleBar = this.add.image(CX + hbW / 2 + 55, indY - 8, 'bonus-bars', 18)
+      .setScale(indScale).setDepth(11).setVisible(false);
+    this.appleLbl = this.add.text(CX + hbW / 2 + 55, indY + 6, '🍎', {
+      fontSize: '10px', stroke: '#000', strokeThickness: 1
+    }).setOrigin(0.5).setDepth(11).setVisible(false);
+
+    // Banana indicator (further right)
+    this.bananaBar = this.add.image(CX + hbW / 2 + 120, indY - 8, 'bonus-bars', 18)
+      .setScale(indScale).setDepth(11).setVisible(false);
+    this.bananaLbl = this.add.text(CX + hbW / 2 + 120, indY + 6, '🍌', {
+      fontSize: '10px', stroke: '#000', strokeThickness: 1
+    }).setOrigin(0.5).setDepth(11).setVisible(false);
+
+    // Dash indicator (left of health bar)
+    this.dashInd = this.add.text(CX - hbW / 2 - 40, indY, '💨', {
+      fontSize: '16px', stroke: '#000', strokeThickness: 2
+    }).setOrigin(0.5).setDepth(11).setVisible(false);
 
     // ── EVENT LISTENERS ──────────────────────────────────────────
     this.gs.events.on('livesChanged', n => this.updateHealthBar(n));
@@ -120,9 +125,18 @@ class HUDScene extends Phaser.Scene {
       this.powerTimerGfx.clear();
     });
 
-    this.gs.events.on('appleOn',    n => this.updateAppleUI(n));
-    this.gs.events.on('appleCount', n => this.updateAppleUI(n));
-    this.gs.events.on('appleOff',  () => this.appleContainer.setVisible(false));
+    this.gs.events.on('appleOn',    n => this.updateItemBar('apple', n));
+    this.gs.events.on('appleCount', n => this.updateItemBar('apple', n));
+    this.gs.events.on('appleOff',  () => { this.appleBar.setVisible(false); this.appleLbl.setVisible(false); });
+
+    // Banana events
+    this.gs.events.on('bananaOn',    n => this.updateItemBar('banana', n));
+    this.gs.events.on('bananaCount', n => this.updateItemBar('banana', n));
+    this.gs.events.on('bananaOff',  () => { this.bananaBar.setVisible(false); this.bananaLbl.setVisible(false); });
+
+    // Dash event
+    this.gs.events.on('dashOn',  () => this.dashInd.setVisible(true));
+    this.gs.events.on('dashOff', () => this.dashInd.setVisible(false));
 
     // Score update loop with milestone animation
     this.time.addEvent({
@@ -158,7 +172,8 @@ class HUDScene extends Phaser.Scene {
     this.events.on('shutdown', () => {
       ['livesChanged','activePower','activePowerOff','queueUpdate',
        'shieldOn','shieldHit','shieldOff',
-       'appleOn','appleCount','appleOff']
+       'appleOn','appleCount','appleOff',
+       'bananaOn','bananaCount','bananaOff','dashOn','dashOff']
         .forEach(ev => this.gs.events.off(ev));
     });
   }
@@ -179,12 +194,16 @@ class HUDScene extends Phaser.Scene {
     this.livesBarImg.setCrop(0, 0, cropW, this._hbFullH);
   }
 
-  updateAppleUI(count) {
-    this.appleContainer.setVisible(count > 0);
-    if (count <= 0) return;
-    this.appleIcons.forEach((icon, i) => {
-      if (i < count) { icon.setAlpha(1.0).clearTint(); }
-      else { icon.setAlpha(0.3).setTint(0x444444); }
-    });
+  // Map count (0-3) to bonus-bars frame: 18=empty, 19=1, 20=2, 21=3
+  updateItemBar(type, count) {
+    const frameBase = 18; // empty dots frame
+    const frame = Math.min(frameBase + Math.max(0, count), 21);
+    if (type === 'apple') {
+      this.appleBar.setFrame(frame).setVisible(count > 0);
+      this.appleLbl.setVisible(count > 0);
+    } else if (type === 'banana') {
+      this.bananaBar.setFrame(frame).setVisible(count > 0);
+      this.bananaLbl.setVisible(count > 0);
+    }
   }
 }

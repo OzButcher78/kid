@@ -1047,9 +1047,8 @@ class GameScene extends Phaser.Scene {
       img.boxKey       = key;
       img.boxReward    = reward;
       img.boxHit       = false;
-      // Level scaling: base hits × level, capped at 6
-      const baseHits = (type === 1) ? 1 : 3;
-      img.hitsRequired = Math.min(baseHits * this.boxHitScale, 6);
+      // Base hits: box1=1, box2=2, box3=3. Level scaling capped at 6.
+      img.hitsRequired = Math.min(type * this.boxHitScale, 6);
       img.hitsTaken    = 0;
       this.boxes.add(img);
     });
@@ -1193,6 +1192,7 @@ class GameScene extends Phaser.Scene {
       case 'banana':
         this.hasBanana = true;
         this.bananaCount = 3;
+        this.events.emit('bananaOn', 3);
         this.showFloat(x, y - 30, 'BANANEN x3!', '#ffee00', true);
         break;
       case 'teleport':
@@ -1205,6 +1205,7 @@ class GameScene extends Phaser.Scene {
         break;
       case 'dash':
         this.hasDash = true;
+        this.events.emit('dashOn');
         this.showFloat(x, y - 30, 'DASH BEREIT! [SPACE]', '#00ddff', true);
         break;
     }
@@ -1478,7 +1479,11 @@ class GameScene extends Phaser.Scene {
 
   throwBanana() {
     this.bananaCount--;
-    if (this.bananaCount <= 0) this.hasBanana = false;
+    this.events.emit('bananaCount', this.bananaCount);
+    if (this.bananaCount <= 0) {
+      this.hasBanana = false;
+      this.events.emit('bananaOff');
+    }
     const dirX = this.player.flipX ? -1 : 1;
     const bx = this.player.x + dirX * 20;
     const by = this.player.y + 15;
@@ -1520,6 +1525,7 @@ class GameScene extends Phaser.Scene {
   executeDash() {
     this.isDashing = true;
     this.hasDash = false;
+    this.events.emit('dashOff');
     const dirX = this.player.flipX ? -1 : 1;
     this.player.setVelocityX(dirX * 600);
     this.player.setVelocityY(-50);

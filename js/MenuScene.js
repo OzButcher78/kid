@@ -116,18 +116,23 @@ class MenuScene extends Phaser.Scene {
       this.add.text(rpX + 70, y, action, txts.ctrl).setOrigin(0, 0);
     });
 
-    // ── CENTER-RIGHT: CRATE PREVIEW ──────────────────────────────
-    const crateY = rpY + rpH + 30;
+    // ── CENTER-RIGHT: CRATE PREVIEW (labels under) ────────────────
+    const crateY = rpY + rpH + 28;
     this.add.text(rpX + rpW / 2, rpY + rpH + 8, 'KISTEN', {
       fontSize: '14px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
       stroke: '#000', strokeThickness: 2
     }).setOrigin(0.5);
-    this.add.image(rpX + rpW / 2 - 50, crateY, 'box1-idle').setScale(1.4);
-    this.add.image(rpX + rpW / 2,      crateY, 'box2-idle').setScale(1.4);
-    this.add.image(rpX + rpW / 2 + 50, crateY, 'box3-idle').setScale(1.4);
+    [['box1-idle','1x','#88ff88'],['box2-idle','2x','#ffaa44'],['box3-idle','3x','#ff6666']].forEach(([tex,lbl,col], i) => {
+      const bx = rpX + rpW / 2 - 50 + i * 50;
+      this.add.image(bx, crateY, tex).setScale(1.3);
+      this.add.text(bx, crateY + 22, lbl, {
+        fontSize: '11px', fill: col, fontFamily: '"Nunito", sans-serif', fontWeight: '800',
+        stroke: '#000', strokeThickness: 2
+      }).setOrigin(0.5);
+    });
 
     // ── START BUTTON (centered below panels) ────────────────────
-    const btnY = Math.max(lpY + lpH, crateY + 30) + 14;
+    const btnY = Math.max(lpY + lpH, crateY + 40) + 10;
     const btn = this.add.text(W / 2, btnY, '  SPIEL STARTEN  ', {
       fontSize: '34px', fill: '#ffffff', fontFamily: '"Bangers", cursive',
       backgroundColor: '#8b1a1a', padding: { x: 26, y: 12 }, letterSpacing: 3
@@ -232,24 +237,24 @@ class MenuScene extends Phaser.Scene {
       this.add.text(W - 254, y, action, txts.key).setOrigin(0, 0);
     });
 
-    // ── CENTER: CRATE PREVIEW (stacked vertically) ─────────────
+    // ── CENTER: CRATE PREVIEW (stacked vertically, labels under) ──
     const cx = W / 2;
-    this.add.text(cx, 158, 'KISTEN', {
+    this.add.text(cx, 155, 'KISTEN', {
       fontSize: '16px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
       stroke: '#000', strokeThickness: 3, letterSpacing: 1
     }).setOrigin(0.5);
     const crates = [
-      ['box1-idle', '1x Schlag', '#88ff88'],
-      ['box2-idle', '3x Schläge', '#ffaa44'],
-      ['box3-idle', '3x Schläge', '#ff6666'],
+      ['box1-idle', '1x', '#88ff88'],
+      ['box2-idle', '2x', '#ffaa44'],
+      ['box3-idle', '3x', '#ff6666'],
     ];
     crates.forEach(([tex, label, col], i) => {
-      const cy = 200 + i * 70;
-      this.add.image(cx - 20, cy, tex).setScale(1.6).setDepth(5);
-      this.add.text(cx + 20, cy, label, {
-        fontSize: '13px', fill: col, fontFamily: '"Nunito", sans-serif', fontWeight: '800',
+      const cy = 195 + i * 72;
+      this.add.image(cx, cy, tex).setScale(1.8).setDepth(5);
+      this.add.text(cx, cy + 28, label, {
+        fontSize: '14px', fill: col, fontFamily: '"Nunito", sans-serif', fontWeight: '800',
         stroke: '#000', strokeThickness: 2
-      }).setOrigin(0, 0.5);
+      }).setOrigin(0.5);
     });
 
     // ── START BUTTON ───────────────────────────────────────────
