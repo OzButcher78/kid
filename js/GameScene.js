@@ -23,6 +23,8 @@ class GameScene extends Phaser.Scene {
     this.hasDash      = false;
     this.isDashing    = false;
     this.isHurt       = false;
+    this.powerQueue   = [];      // queued timed power-ups
+    this.activePower  = null;    // currently active timed power-up name
     this.jumpCount    = 0;
     this.gameOver     = false;
     this.playerAnim   = '';
@@ -1142,27 +1144,41 @@ class GameScene extends Phaser.Scene {
     });
   }
 
+  // Timed power-ups: only 1 active, rest queue. Instant items apply immediately.
   applyPowerup(type, x, y) {
     this['snd-collect']?.play();
     this.score += 50;
     this.spawnParticles(x, y, 0xffffff, 6);
+
+    // Instant items — always apply immediately, no queue
+    const instantTypes = ['heart', 'apple', 'banana', 'teleport', 'dash'];
+    if (instantTypes.includes(type)) {
+      this._applyInstant(type, x, y);
+      return;
+    }
+
+    // Timed buffs — queue if one is already active
+    const timedTypes = ['shield', 'speed', 'rainbow', 'mini', 'rocket'];
+    if (timedTypes.includes(type)) {
+      if (this.activePower) {
+        // Queue it
+        this.powerQueue.push({ type, x, y });
+        const names = this.powerQueue.map(p => this._powerLabel(p.type));
+        this.events.emit('queueUpdate', names);
+        this.showFloat(x, y - 30, this._powerLabel(type) + ' (WARTESCHLANGE)', '#aaaaaa', true);
+      } else {
+        this._activateTimedPower(type, x, y);
+      }
+    }
+  }
+
+  _powerLabel(type) {
+    const labels = { shield: 'SCHILD', speed: 'TURBO', rainbow: 'REGENBOGEN', mini: 'MINI', rocket: 'RAKETE' };
+    return labels[type] || type.toUpperCase();
+  }
+
+  _applyInstant(type, x, y) {
     switch (type) {
-      case 'shield':
-        this.shieldHits = 3;
-        this.events.emit('shieldOn', 3);
-        this.showFloat(x, y - 30, 'SCHILD x3!', '#ffd700', true);
-        break;
-      case 'speed':
-        this.hasSpeed = true;
-        this.player.setTint(0x00ffff);
-        this.events.emit('speedOn', 8000);
-        this.showFloat(x, y - 30, 'TURBO!', '#00ffff', true);
-        this.time.delayedCall(8000, () => {
-          this.hasSpeed = false;
-          this.player?.clearTint();
-          this.events.emit('speedOff');
-        });
-        break;
       case 'heart':
         this.lives = Math.min(this.lives + 1, 5);
         this.events.emit('livesChanged', this.lives);
@@ -1174,10 +1190,10 @@ class GameScene extends Phaser.Scene {
         this.events.emit('appleOn', 3);
         this.showFloat(x, y - 30, '3 ÄPFEL! [SPACE]', '#ff6600', true);
         break;
-      case 'rainbow':
-        this.hasRainbow = true;
-        this.showFloat(x, y - 30, 'REGENBOGEN!', '#ff00ff', true);
-        this.time.delayedCall(10000, () => { this.hasRainbow = false; });
+      case 'banana':
+        this.hasBanana = true;
+        this.bananaCount = 3;
+        this.showFloat(x, y - 30, 'BANANEN x3!', '#ffee00', true);
         break;
       case 'teleport':
         this.hasTeleport = true;
@@ -1187,38 +1203,90 @@ class GameScene extends Phaser.Scene {
         this.events.emit('appleOn', 2);
         this.showFloat(x, y - 30, 'TELEPORT-APFEL x2!', '#aa00ff', true);
         break;
+      case 'dash':
+        this.hasDash = true;
+        this.showFloat(x, y - 30, 'DASH BEREIT! [SPACE]', '#00ddff', true);
+        break;
+    }
+  }
+
+  _activateTimedPower(type, x, y) {
+    this.activePower = type;
+    const durations = { shield: 0, speed: 8000, rainbow: 10000, mini: 8000, rocket: 6000 };
+    const dur = durations[type] || 8000;
+
+    switch (type) {
+      case 'shield':
+        this.shieldHits = 3;
+        this.events.emit('shieldOn', 3);
+        this.showFloat(x, y - 30, 'SCHILD x3!', '#ffd700', true);
+        // Shield ends when hits run out, not on timer — handled in takeDamage
+        return;
+      case 'speed':
+        this.hasSpeed = true;
+        this.player.setTint(0x00ffff);
+        this.events.emit('activePower', 'TURBO', dur);
+        this.showFloat(x, y - 30, 'TURBO!', '#00ffff', true);
+        break;
+      case 'rainbow':
+        this.hasRainbow = true;
+        this.events.emit('activePower', 'REGENBOGEN', dur);
+        this.showFloat(x, y - 30, 'REGENBOGEN!', '#ff00ff', true);
+        break;
       case 'mini':
         this.isMini = true;
         this.player.setScale(0.8);
         this.player.body.setSize(14, 24);
         this.player.body.setOffset(25, 24);
+        this.events.emit('activePower', 'MINI-MODUS', dur);
         this.showFloat(x, y - 30, 'MINI-MODUS!', '#88ff88', true);
-        this.time.delayedCall(8000, () => {
-          this.isMini = false;
-          if (this.player?.active) {
-            this.player.setScale(1.5);
-            this.player.body.setSize(20, 32);
-            this.player.body.setOffset(22, 16);
-          }
-        });
-        break;
-      case 'banana':
-        this.hasBanana = true;
-        this.bananaCount = 3;
-        this.showFloat(x, y - 30, 'BANANEN x3!', '#ffee00', true);
         break;
       case 'rocket':
         this.hasRocket = true;
+        this.events.emit('activePower', 'RAKETENSTIEFEL', dur);
         this.showFloat(x, y - 30, 'RAKETENSTIEFEL!', '#ff4400', true);
-        this.time.delayedCall(6000, () => {
-          this.hasRocket = false;
-          if (this.player?.active) this.player.clearTint();
-        });
         break;
-      case 'dash':
-        this.hasDash = true;
-        this.showFloat(x, y - 30, 'DASH BEREIT! [SPACE]', '#00ddff', true);
+    }
+
+    // Timer to end this power and activate next in queue
+    this.time.delayedCall(dur, () => this._endTimedPower(type));
+  }
+
+  _endTimedPower(type) {
+    // Clean up the ending power
+    switch (type) {
+      case 'speed':
+        this.hasSpeed = false;
+        if (this.player?.active) this.player.clearTint();
         break;
+      case 'rainbow':
+        this.hasRainbow = false;
+        break;
+      case 'mini':
+        this.isMini = false;
+        if (this.player?.active) {
+          this.player.setScale(1.5);
+          this.player.body.setSize(20, 32);
+          this.player.body.setOffset(22, 16);
+        }
+        break;
+      case 'rocket':
+        this.hasRocket = false;
+        if (this.player?.active) this.player.clearTint();
+        break;
+    }
+
+    this.activePower = null;
+    this.events.emit('activePowerOff');
+
+    // Activate next queued power
+    if (this.powerQueue.length > 0) {
+      const next = this.powerQueue.shift();
+      const names = this.powerQueue.map(p => this._powerLabel(p.type));
+      this.events.emit('queueUpdate', names);
+      this._activateTimedPower(next.type, this.player?.x || next.x, this.player?.y || next.y);
+    } else {
+      this.events.emit('queueUpdate', []);
     }
   }
 
@@ -1269,6 +1337,15 @@ class GameScene extends Phaser.Scene {
       } else {
         this.showFloat(this.player.x, this.player.y - 50, 'SCHILD KAPUTT!', '#ff8800');
         this.events.emit('shieldOff');
+        // Shield was a timed power — advance queue
+        this.activePower = null;
+        if (this.powerQueue.length > 0) {
+          const next = this.powerQueue.shift();
+          this.events.emit('queueUpdate', this.powerQueue.map(p => this._powerLabel(p.type)));
+          this.time.delayedCall(500, () => this._activateTimedPower(next.type, this.player?.x || next.x, this.player?.y || next.y));
+        } else {
+          this.events.emit('queueUpdate', []);
+        }
       }
       // Brief invulnerability after shield absorb so overlapping enemies
       // don't drain all hits in a single frame
