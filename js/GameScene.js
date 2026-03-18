@@ -205,12 +205,10 @@ class GameScene extends Phaser.Scene {
     // Store platform metadata for enemy navigation
     this.platData = [];
 
-    const addPlat = (x, y, w, h = 20) => {
-      // Tile the platform with the grass-topped piece from Allpieces.png
-      this.add.image(x, y, 'tiles', 'plat-wide')
-        .setDisplaySize(w, 24).setDepth(4);
-
-      // Invisible physics body
+    const addPlat = (x, y, w, h = 20, col = 0x4a7c44) => {
+      gfx.fillStyle(col);
+      gfx.fillRect(x - w / 2, y - h / 2, w, h);
+      if (h <= 22) { gfx.fillStyle(0x66bb6a); gfx.fillRect(x - w / 2, y - h / 2, w, 5); }
       const r = this.add.rectangle(x, y, w, h).setVisible(false);
       this.physics.add.existing(r, true);
       this.platforms.add(r);
@@ -222,20 +220,8 @@ class GameScene extends Phaser.Scene {
       });
     };
 
-    // Ground — brown fill + tiled grass top
-    gfx.fillStyle(0x3e2723);
-    gfx.fillRect(0, H - 48, W, 48);
-    for (let gx = 0; gx < W; gx += 288) {
-      this.add.image(gx + 144, H - 48, 'tiles', 'plat-wide')
-        .setDisplaySize(290, 18).setOrigin(0.5, 0.5).setDepth(4);
-    }
-    // Ground physics
-    const gr = this.add.rectangle(W / 2, H - 24, W, 48).setVisible(false);
-    this.physics.add.existing(gr, true);
-    this.platforms.add(gr);
-    this.platData.push({ x: W/2, y: H-24, w: W, h: 48, top: H-48, left: 0, right: W });
+    addPlat(W / 2, H - 24, W, 48, 0x3e2723);
 
-    // Floating platforms
     [
       [340,  H-110, 180], [600,  H-185, 150], [860,  H-130, 200],
       [1150, H-210, 180], [1400, H-155, 200], [1660, H-248, 160], [1910, H-175, 220],
@@ -245,17 +231,6 @@ class GameScene extends Phaser.Scene {
       [730,  H-325,  90], [1260, H-345,  90], [2060, H-395,  90],
       [2910, H-363,  90], [3660, H-415,  90], [4460, H-385,  90],
     ].forEach(([x, y, w]) => addPlat(x, y, w));
-
-    // ── DECORATIONS (sparse, ground only) ────────────────────────
-    [200, 750, 1500, 2300, 3050, 3800, 4700].forEach((bx, i) => {
-      this.add.image(bx, H - 48, 'tiles', i % 2 === 0 ? 'bush-sm' : 'bush-lg')
-        .setDisplaySize(i % 2 === 0 ? 26 : 34, i % 2 === 0 ? 22 : 30)
-        .setOrigin(0.5, 1).setDepth(3).setAlpha(0.8);
-    });
-    [500, 1900, 3400, 4400].forEach(mx => {
-      this.add.image(mx, H - 48, 'tiles', 'mush')
-        .setDisplaySize(20, 20).setOrigin(0.5, 1).setDepth(3).setAlpha(0.75);
-    });
   }
 
   // ── PLATFORM-AWARE AI: NAV GRAPH + BFS PATHFINDING ───────────
