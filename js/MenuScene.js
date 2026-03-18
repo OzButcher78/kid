@@ -232,29 +232,25 @@ class MenuScene extends Phaser.Scene {
       this.add.text(W - 254, y, action, txts.key).setOrigin(0, 0);
     });
 
-    // ── CENTER: CRATE PREVIEW ──────────────────────────────────
-    const crateY = 260;
-    this.add.text(W / 2, 160, 'KISTEN', {
+    // ── CENTER: CRATE PREVIEW (stacked vertically) ─────────────
+    const cx = W / 2;
+    this.add.text(cx, 158, 'KISTEN', {
       fontSize: '16px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
       stroke: '#000', strokeThickness: 3, letterSpacing: 1
     }).setOrigin(0.5);
-    // Show the 3 crate types
-    this.add.image(W / 2 - 60, crateY, 'box1-idle').setScale(1.8).setDepth(5);
-    this.add.image(W / 2,      crateY, 'box2-idle').setScale(1.8).setDepth(5);
-    this.add.image(W / 2 + 60, crateY, 'box3-idle').setScale(1.8).setDepth(5);
-    // Labels
-    this.add.text(W / 2 - 60, crateY + 30, '1x', {
-      fontSize: '13px', fill: '#88ff88', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
-      stroke: '#000', strokeThickness: 2
-    }).setOrigin(0.5);
-    this.add.text(W / 2, crateY + 30, '3x', {
-      fontSize: '13px', fill: '#ffaa44', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
-      stroke: '#000', strokeThickness: 2
-    }).setOrigin(0.5);
-    this.add.text(W / 2 + 60, crateY + 30, '3x', {
-      fontSize: '13px', fill: '#ff6666', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
-      stroke: '#000', strokeThickness: 2
-    }).setOrigin(0.5);
+    const crates = [
+      ['box1-idle', '1x Schlag', '#88ff88'],
+      ['box2-idle', '3x Schläge', '#ffaa44'],
+      ['box3-idle', '3x Schläge', '#ff6666'],
+    ];
+    crates.forEach(([tex, label, col], i) => {
+      const cy = 200 + i * 70;
+      this.add.image(cx - 20, cy, tex).setScale(1.6).setDepth(5);
+      this.add.text(cx + 20, cy, label, {
+        fontSize: '13px', fill: col, fontFamily: '"Nunito", sans-serif', fontWeight: '800',
+        stroke: '#000', strokeThickness: 2
+      }).setOrigin(0, 0.5);
+    });
 
     // ── START BUTTON ───────────────────────────────────────────
     const btn = this.add.text(W / 2, 468, ' SPIEL STARTEN ', {
