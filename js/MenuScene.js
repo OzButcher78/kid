@@ -47,38 +47,90 @@ class MenuScene extends Phaser.Scene {
   }
 
   createMobileMenu(W, H) {
-    // Big title
-    this.add.text(W / 2, 55, 'Kind vs Müttern', {
-      fontSize: '52px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
-      stroke: '#5a0000', strokeThickness: 7, letterSpacing: 3
+    const txts = {
+      head: { fontSize: '16px', fill: '#ffd700', fontFamily: '"Bangers", cursive', stroke: '#000', strokeThickness: 3, letterSpacing: 1 },
+      item: { fontSize: '13px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800', stroke: '#000', strokeThickness: 2 },
+      ctrl: { fontSize: '14px', fill: '#aaddff', fontFamily: '"Nunito", sans-serif', fontWeight: '700', stroke: '#000', strokeThickness: 2 },
+    };
+
+    // ── TITLE (compact, top center) ─────────────────────────────
+    this.add.text(W / 2, 40, 'Kind vs Müttern', {
+      fontSize: '40px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
+      stroke: '#5a0000', strokeThickness: 6, letterSpacing: 2
     }).setOrigin(0.5);
 
-    this.add.text(W / 2, 110, 'von Noah B.', {
-      fontSize: '24px', fill: '#ffffff', fontFamily: '"Bangers", cursive',
+    this.add.text(W / 2, 78, 'von Noah B.', {
+      fontSize: '18px', fill: '#ffffff', fontFamily: '"Bangers", cursive',
       stroke: '#000000', strokeThickness: 3
     }).setOrigin(0.5);
 
-    // Minimal controls hint
-    this.add.text(W / 2, 160, '◀ ▶ Bewegen   ⬆ Springen   ● Werfen', {
-      fontSize: '16px', fill: '#aaddff', fontFamily: '"Nunito", sans-serif', fontWeight: '700',
-      stroke: '#000', strokeThickness: 2
-    }).setOrigin(0.5);
+    // ── LEFT PANEL: POWER-UPS ───────────────────────────────────
+    const lpX = 12, lpY = 100, lpW = 250, lpH = 280;
+    const panelG = this.add.graphics();
+    panelG.fillStyle(0x000000, 0.55);
+    panelG.fillRoundedRect(lpX, lpY, lpW, lpH, 10);
+    panelG.lineStyle(1.5, 0xffd700, 0.4);
+    panelG.strokeRoundedRect(lpX, lpY, lpW, lpH, 10);
 
-    // Compact power-up list
-    this.add.rectangle(W / 2, 230, 520, 80, 0x000000, 0.55);
-    this.add.text(W / 2, 216, 'Schild  |  Turbo  |  Äpfel  |  Herz  |  Regenbogen', {
-      fontSize: '15px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
-      stroke: '#000', strokeThickness: 2
-    }).setOrigin(0.5);
-    this.add.text(W / 2, 240, 'Teleport  |  Mini  |  Banane  |  Rakete  |  Dash', {
-      fontSize: '15px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
-      stroke: '#000', strokeThickness: 2
-    }).setOrigin(0.5);
+    this.add.text(lpX + lpW / 2, lpY + 10, 'POWER-UPS', txts.head).setOrigin(0.5, 0);
 
-    // BIG START BUTTON
-    const btn = this.add.text(W / 2, 330, '  SPIEL STARTEN  ', {
-      fontSize: '38px', fill: '#ffffff', fontFamily: '"Bangers", cursive',
-      backgroundColor: '#8b1a1a', padding: { x: 30, y: 16 }, letterSpacing: 3
+    const powers = [
+      ['🛡️', 'Schild', '3x Blocken'],
+      ['⚡', 'Turbo', 'Schneller'],
+      ['🍎', 'Äpfel', 'Werfen'],
+      ['❤️', 'Herz', '+1 Leben'],
+      ['🌈', 'Regenbogen', 'Trail'],
+      ['🔮', 'Teleport', 'Apfel-Port'],
+      ['🔹', 'Mini', 'Schrumpfen'],
+      ['🍌', 'Banane', 'Einfrieren'],
+      ['🚀', 'Rakete', 'Schweben'],
+      ['💨', 'Dash', 'Sprint'],
+    ];
+    powers.forEach(([icon, name, desc], i) => {
+      const y = lpY + 34 + i * 24;
+      this.add.text(lpX + 10, y, `${icon} ${name}`, txts.item).setOrigin(0, 0);
+      this.add.text(lpX + 130, y, desc, { ...txts.item, fill: '#cccccc', fontSize: '12px' }).setOrigin(0, 0);
+    });
+
+    // ── RIGHT PANEL: CONTROLS ───────────────────────────────────
+    const rpX = W - 262, rpY = 100, rpW = 250, rpH = 200;
+    panelG.fillStyle(0x000000, 0.55);
+    panelG.fillRoundedRect(rpX, rpY, rpW, rpH, 10);
+    panelG.lineStyle(1.5, 0xaaddff, 0.4);
+    panelG.strokeRoundedRect(rpX, rpY, rpW, rpH, 10);
+
+    this.add.text(rpX + rpW / 2, rpY + 10, 'STEUERUNG', { ...txts.head, fill: '#aaddff' }).setOrigin(0.5, 0);
+
+    const controls = [
+      ['◀ ▶', 'Bewegen'],
+      ['⬆', 'Springen'],
+      ['⬆⬆', 'Doppelsprung'],
+      ['●', 'Werfen / Dash'],
+    ];
+    controls.forEach(([key, action], i) => {
+      const y = rpY + 38 + i * 36;
+      this.add.text(rpX + 14, y, key, {
+        fontSize: '14px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
+        backgroundColor: '#444466', padding: { x: 5, y: 2 }, stroke: '#000', strokeThickness: 1
+      }).setOrigin(0, 0);
+      this.add.text(rpX + 70, y, action, txts.ctrl).setOrigin(0, 0);
+    });
+
+    // ── CENTER-RIGHT: CRATE PREVIEW ──────────────────────────────
+    const crateY = rpY + rpH + 30;
+    this.add.text(rpX + rpW / 2, rpY + rpH + 8, 'KISTEN', {
+      fontSize: '14px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
+      stroke: '#000', strokeThickness: 2
+    }).setOrigin(0.5);
+    this.add.image(rpX + rpW / 2 - 50, crateY, 'box1-idle').setScale(1.4);
+    this.add.image(rpX + rpW / 2,      crateY, 'box2-idle').setScale(1.4);
+    this.add.image(rpX + rpW / 2 + 50, crateY, 'box3-idle').setScale(1.4);
+
+    // ── START BUTTON (centered below panels) ────────────────────
+    const btnY = Math.max(lpY + lpH, crateY + 30) + 14;
+    const btn = this.add.text(W / 2, btnY, '  SPIEL STARTEN  ', {
+      fontSize: '34px', fill: '#ffffff', fontFamily: '"Bangers", cursive',
+      backgroundColor: '#8b1a1a', padding: { x: 26, y: 12 }, letterSpacing: 3
     }).setOrigin(0.5).setInteractive({ useHandCursor: true });
     btn.on('pointerdown', () => {
       this.startMusic();
@@ -113,7 +165,7 @@ class MenuScene extends Phaser.Scene {
       stroke: '#5a0000', strokeThickness: 6, letterSpacing: 2
     }).setOrigin(0.5);
     this.add.text(W / 2, 98, 'Entkommt die Müttern!', {
-      fontSize: '16px', fill: '#ffcccc', fontFamily: '"Nunito", sans-serif', fontWeight: '700',
+      fontSize: '16px', fill: '#ffd700', fontFamily: '"Nunito", sans-serif', fontWeight: '700',
       stroke: '#000', strokeThickness: 2
     }).setOrigin(0.5);
     this.add.text(W / 2, 122, 'von Noah B.', {
@@ -125,16 +177,16 @@ class MenuScene extends Phaser.Scene {
     const panelG = this.add.graphics();
     // Left panel
     panelG.fillStyle(0x000000, 0.55);
-    panelG.fillRoundedRect(16, 150, 260, 260, 12);
+    panelG.fillRoundedRect(80, 150, 260, 260, 12);
     panelG.lineStyle(1.5, 0xffd700, 0.4);
-    panelG.strokeRoundedRect(16, 150, 260, 260, 12);
+    panelG.strokeRoundedRect(80, 150, 260, 260, 12);
     // Right panel
     panelG.fillStyle(0x000000, 0.55);
-    panelG.fillRoundedRect(W - 276, 150, 260, 260, 12);
+    panelG.fillRoundedRect(W - 340, 150, 260, 260, 12);
     panelG.lineStyle(1.5, 0xaaddff, 0.4);
-    panelG.strokeRoundedRect(W - 276, 150, 260, 260, 12);
+    panelG.strokeRoundedRect(W - 340, 150, 260, 260, 12);
 
-    this.add.text(146, 162, 'POWER-UPS', txts.head).setOrigin(0.5, 0);
+    this.add.text(210, 162, 'POWER-UPS', txts.head).setOrigin(0.5, 0);
 
     const powers = [
       ['🛡️', 'Schild', '3x Blocken'],
@@ -150,12 +202,12 @@ class MenuScene extends Phaser.Scene {
     ];
     powers.forEach(([icon, name, desc], i) => {
       const y = 190 + i * 22;
-      this.add.text(30, y, `${icon} ${name}`, txts.item).setOrigin(0, 0);
-      this.add.text(158, y, desc, { ...txts.item, fill: '#cccccc', fontSize: '13px' }).setOrigin(0, 0);
+      this.add.text(94, y, `${icon} ${name}`, txts.item).setOrigin(0, 0);
+      this.add.text(222, y, desc, { ...txts.item, fill: '#cccccc', fontSize: '13px' }).setOrigin(0, 0);
     });
 
     // ── RIGHT PANEL: CONTROLS ──────────────────────────────────
-    this.add.text(W - 146, 162, 'STEUERUNG', txts.head).setOrigin(0.5, 0);
+    this.add.text(W - 210, 162, 'STEUERUNG', txts.head).setOrigin(0.5, 0);
 
     const controls = [
       ['← →', 'Bewegen'],
@@ -164,7 +216,6 @@ class MenuScene extends Phaser.Scene {
       ['SPACE', 'Äpfel werfen'],
       ['SPACE', 'Banane werfen'],
       ['SPACE', 'Dash ausführen'],
-      ['Q', 'Teleport-Apfel'],
       ['', ''],
       ['ESC', 'Pause'],
     ];
@@ -173,13 +224,37 @@ class MenuScene extends Phaser.Scene {
       const y = 190 + i * 24;
       // Key badge
       if (key) {
-        this.add.text(W - 262, y, key, {
+        this.add.text(W - 326, y, key, {
           fontSize: '13px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
           backgroundColor: '#444466', padding: { x: 4, y: 2 }, stroke: '#000', strokeThickness: 1
         }).setOrigin(0, 0);
       }
-      this.add.text(W - 190, y, action, txts.key).setOrigin(0, 0);
+      this.add.text(W - 254, y, action, txts.key).setOrigin(0, 0);
     });
+
+    // ── CENTER: CRATE PREVIEW ──────────────────────────────────
+    const crateY = 260;
+    this.add.text(W / 2, 160, 'KISTEN', {
+      fontSize: '16px', fill: '#ffd700', fontFamily: '"Bangers", cursive',
+      stroke: '#000', strokeThickness: 3, letterSpacing: 1
+    }).setOrigin(0.5);
+    // Show the 3 crate types
+    this.add.image(W / 2 - 60, crateY, 'box1-idle').setScale(1.8).setDepth(5);
+    this.add.image(W / 2,      crateY, 'box2-idle').setScale(1.8).setDepth(5);
+    this.add.image(W / 2 + 60, crateY, 'box3-idle').setScale(1.8).setDepth(5);
+    // Labels
+    this.add.text(W / 2 - 60, crateY + 30, '1x', {
+      fontSize: '13px', fill: '#88ff88', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
+      stroke: '#000', strokeThickness: 2
+    }).setOrigin(0.5);
+    this.add.text(W / 2, crateY + 30, '3x', {
+      fontSize: '13px', fill: '#ffaa44', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
+      stroke: '#000', strokeThickness: 2
+    }).setOrigin(0.5);
+    this.add.text(W / 2 + 60, crateY + 30, '3x', {
+      fontSize: '13px', fill: '#ff6666', fontFamily: '"Nunito", sans-serif', fontWeight: '800',
+      stroke: '#000', strokeThickness: 2
+    }).setOrigin(0.5);
 
     // ── START BUTTON ───────────────────────────────────────────
     const btn = this.add.text(W / 2, 468, ' SPIEL STARTEN ', {
@@ -197,7 +272,7 @@ class MenuScene extends Phaser.Scene {
 
     // Spacebar hint
     this.add.text(W / 2, 500, 'oder LEERTASTE drücken', {
-      fontSize: '12px', fill: '#888888', fontFamily: '"Nunito", sans-serif', fontWeight: '700',
+      fontSize: '12px', fill: '#ffffff', fontFamily: '"Nunito", sans-serif', fontWeight: '700',
       stroke: '#000', strokeThickness: 1
     }).setOrigin(0.5);
   }
